@@ -1,0 +1,47 @@
+groups:
+  - name: database.rules
+    rules:
+      - alert: DatabaseDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database is down"
+          description: "PostgreSQL database has been down for more than 1 minute."
+
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connections"
+          description: "Database connections are above 80% of maximum."
+
+      - alert: SlowQueries
+        expr: pg_stat_statements_mean_time > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow queries detected"
+          description: "Average query time is above 1 second."
+
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is above 80%."
+
+      - alert: ApplicationDown
+        expr: up{job="app-metrics"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application is down"
+          description: "The application has been down for more than 1 minute."

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Organizer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        .title {
+            color: #dc2626;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .highlight {
+            background-color: #fef2f2;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #dc2626;
+            margin: 20px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .cta-button:hover {
+            background-color: #1d4ed8;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .reason-box {
+            background-color: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">NUSA Event Management</div>
+            <h1 class="title">❌ Status Organizer Anda</h1>
+        </div>
+
+        <div class="content">
+            <p>Halo <strong>{{fullName}}</strong>,</p>
+            
+            <p>Terima kasih atas minat Anda untuk menjadi Event Organizer di platform kami. Setelah meninjau permohonan Anda pada {{rejectionDate}}, kami harus menyampaikan bahwa permohonan Anda belum dapat disetujui saat ini.</p>
+
+            <div class="highlight">
+                <h3>📋 Alasan Penolakan:</h3>
+                <div class="reason-box">
+                    <strong>{{reason}}</strong>
+                </div>
+            </div>
+
+            <p><strong>Jangan berkecil hati!</strong> Anda masih dapat mengajukan permohonan ulang setelah memperbaiki hal-hal yang disebutkan di atas.</p>
+
+            <h3>💡 Tips untuk Permohonan Ulang:</h3>
+            <ul>
+                <li>Pastikan semua dokumen yang diperlukan sudah lengkap dan valid</li>
+                <li>Lengkapi profil dengan informasi yang detail dan akurat</li>
+                <li>Berikan portfolio atau pengalaman yang relevan</li>
+                <li>Pastikan informasi kontak dapat dihubungi</li>
+            </ul>
+
+            <div style="text-align: center;">
+                <a href="{{upgradeUrl}}" class="cta-button">🔄 Ajukan Permohonan Ulang</a>
+            </div>
+
+            <p>Jika Anda memiliki pertanyaan atau membutuhkan bantuan dalam proses permohonan ulang, jangan ragu untuk menghubungi tim support kami.</p>
+        </div>
+
+        <div class="footer">
+            <p>Jika Anda memiliki pertanyaan, silakan hubungi kami di <a href="mailto:{{supportEmail}}">{{supportEmail}}</a></p>
+            <p>© 2025 NUSA Event Management. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,970 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+model User {
+  id                         String                      @id @default(uuid())
+  fullName                   String                      @map("full_name")
+  email                      String                      @unique
+  phoneNumber                String?                     @map("phone_number")
+  address                    String?
+  lastEducation              String?                     @map("last_education")
+  password                   String
+  role                       UserRole                    @default(PARTICIPANT)
+  department                 Department?                 @default(PARTICIPANT)
+  userPosition               UserPosition?               @default(PARTICIPANT) @map("user_position")
+  managerId                  String?                     @map("manager_id")
+  employeeId                 String?                     @unique @map("employee_id")
+  emailVerified              Boolean                     @default(false) @map("email_verified")
+  verificationToken          String?                     @map("verification_token")
+  verificationTokenExpires   DateTime?                   @map("verification_token_expires")
+  resetPasswordToken         String?                     @map("reset_password_token")
+  resetPasswordExpires       DateTime?                   @map("reset_password_expires")
+  lastActivity               DateTime?                   @map("last_activity")
+  tokenVersion               Int                         @default(0) @map("token_version")
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime                    @updatedAt @map("updated_at")
+  organizerType              OrganizerType?              @map("organizer_type")
+  verificationStatus         VerificationStatus          @default(PENDING) @map("verification_status")
+  verifiedAt                 DateTime?                   @map("verified_at")
+  rejectedReason             String?                     @map("rejected_reason")
+  assignedTo                 String?                     @map("assigned_to")
+  assignedAt                 DateTime?                   @map("assigned_at")
+  activityLogs               ActivityLog[]
+  agentHistory               AssignmentHistory[]         @relation("AgentHistory")
+  userHistory                AssignmentHistory[]         @relation("UserHistory")
+  auditLogs                  AuditLog[]                  @relation("AuditPerformer")
+  businessProfile            BusinessProfile?
+  communityProfile           CommunityProfile?
+  assignedTickets            DepartmentTicket[]          @relation("TicketAssignee")
+  departmentTickets          DepartmentTicket[]          @relation("DepartmentTickets")
+  eventRegistrations         EventRegistration[]
+  approvedEvents             Event[]                     @relation("EventApprover")
+  createdEvents              Event[]                     @relation("EventCreator")
+  garden                     garden[]
+  globalCertificateTemplates GlobalCertificateTemplate[]
+  individualProfile          IndividualProfile?
+  institutionProfile         InstitutionProfile?
+  notifications              Notification[]
+  organizerRevenue           OrganizerRevenue[]
+  payments                   Payment[]
+  pump_command_logs          pump_command_logs[]
+  pump_execution_history     pump_execution_history[]
+  pump_schedules             pump_schedules[]
+  teamAssignments            TeamAssignment[]
+  teamMemberships            TeamMember[]
+  ticketComments             TicketComment[]
+  manager                    User?                       @relation("ManagerSubordinates", fields: [managerId], references: [id])
+  subordinates               User[]                      @relation("ManagerSubordinates")
+
+  @@map("users")
+}
+
+model IndividualProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  nik             String   // Required: NIK/KTP
+  personalAddress String   @map("personal_address") // Required
+  personalPhone   String   @map("personal_phone") // Required
+  documents       String[] @default([]) // PDF documents array
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("individual_profiles")
+}
+
+model CommunityProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  communityName    String   @map("community_name") // Required
+  communityAddress String   @map("community_address") // Required
+  communityPhone   String   @map("community_phone") // Required
+  contactPerson    String   @map("contact_person") // Required
+  documents        String[] @default([]) // PDF documents array
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("community_profiles")
+}
+
+model BusinessProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  businessName    String   @map("business_name") // Required
+  businessAddress String   @map("business_address") // Required
+  businessPhone   String   @map("business_phone") // Required
+  npwp            String?  // Optional for UMKM
+  documents       String[] @default([]) // PDF documents array
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("business_profiles")
+}
+
+model InstitutionProfile {
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  institutionName    String   @map("institution_name") // Required
+  institutionAddress String   @map("institution_address") // Required
+  institutionPhone   String   @map("institution_phone") // Required
+  contactPerson      String   @map("contact_person") // Required
+  documents          String[] @default([]) // PDF documents array
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("institution_profiles")
+}
+
+model Event {
+  id                     String               @id @default(uuid())
+  title                  String
+  eventDate              DateTime             @map("event_date")
+  eventEndDate           DateTime?            @map("event_end_date")
+  eventTime              String               @map("event_time")
+  eventEndTime           String?              @map("event_end_time")
+  location               String
+  latitude               Decimal?             @db.Decimal(10, 8)
+  longitude              Decimal?             @db.Decimal(11, 8)
+  address                String?
+  city                   String?
+  province               String?
+  country                String?
+  postalCode             String?              @map("postal_code")
+  thumbnailUrl           String?              @map("thumbnail_url")
+  galleryUrls            String[]             @map("gallery_urls")
+  flyerUrl               String?              @map("flyer_url")
+  certificateTemplateUrl String?              @map("certificate_template_url")
+  description            String?
+  maxParticipants        Int                  @map("max_participants")
+  registrationDeadline   DateTime             @map("registration_deadline")
+  isPublished            Boolean              @default(false) @map("is_published")
+  generateCertificate    Boolean              @default(false) @map("generate_certificate")
+  status                 EventStatus          @default(DRAFT)
+  category               EventCategory        @default(OTHER)
+  price                  Decimal?             @db.Decimal(10, 2)
+  isFree                 Boolean              @default(true) @map("is_free")
+  platformFee            Decimal?             @map("platform_fee") @db.Decimal(5, 2)
+  organizerRevenue       Decimal?             @map("organizer_revenue") @db.Decimal(10, 2)
+  createdBy              String               @map("created_by")
+  approvedBy             String?              @map("approved_by")
+  approvedAt             DateTime?            @map("approved_at")
+  rejectionReason        String?              @map("rejection_reason")
+  assignedTo             String?              @map("assigned_to")
+  assignedAt             DateTime?            @map("assigned_at")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  isPrivate              Boolean              @default(false) @map("is_private")
+  privatePassword        String?              @map("private_password")
+  hasMultipleTicketTypes Boolean              @default(false) @map("has_multiple_ticket_types")
+  certificateTemplate    CertificateTemplate?
+  cancellations          EventCancellation[]
+  registrations          EventRegistration[]
+  approver               User?                @relation("EventApprover", fields: [approvedBy], references: [id])
+  creator                User                 @relation("EventCreator", fields: [createdBy], references: [id])
+  revenueRecords         OrganizerRevenue[]
+  payments               Payment[]
+  ticketTypes            TicketType[]
+
+  @@map("events")
+}
+
+model TicketType {
+  id                 String              @id @default(uuid())
+  eventId            String              @map("event_id")
+  name               String              @db.VarChar(255)
+  description        String?
+  price              Decimal?            @db.Decimal(10, 2)
+  isFree             Boolean             @default(false) @map("is_free")
+  capacity           Int
+  soldCount          Int                 @default(0) @map("sold_count")
+  saleStartDate      DateTime?           @map("sale_start_date")
+  saleEndDate        DateTime?           @map("sale_end_date")
+  benefits           Json?
+  isActive           Boolean             @default(true) @map("is_active")
+  sortOrder          Int                 @default(0) @map("sort_order")
+  color              String?             @default("#2563EB") @db.VarChar(7)
+  icon               String?             @default("ticket") @db.VarChar(50)
+  badgeText          String?             @map("badge_text") @db.VarChar(50)
+  minQuantity        Int?                @default(1) @map("min_quantity")
+  maxQuantity        Int?                @default(10) @map("max_quantity")
+  requiresApproval   Boolean?            @default(false) @map("requires_approval")
+  termsConditions    String?             @map("terms_conditions")
+  originalPrice      Decimal?            @map("original_price") @db.Decimal(10, 2)
+  discountPercentage Decimal?            @map("discount_percentage") @db.Decimal(5, 2)
+  promoCode          String?             @map("promo_code") @db.VarChar(50)
+  metadata           Json?
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  registrations      EventRegistration[]
+  event              Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("ticket_types")
+}
+
+model EventRegistration {
+  id                String             @id @default(uuid())
+  eventId           String             @map("event_id")
+  participantId     String             @map("participant_id")
+  registrationToken String             @unique @map("registration_token")
+  hasAttended       Boolean            @default(false) @map("has_attended")
+  attendanceTime    DateTime?          @map("attendance_time")
+  certificateUrl    String?            @map("certificate_url")
+  qrCodeUrl         String?            @map("qr_code_url")
+  status            RegistrationStatus @default(ACTIVE)
+  cancelledAt       DateTime?          @map("cancelled_at")
+  registeredAt      DateTime           @default(now()) @map("registered_at")
+  attendedAt        DateTime?          @map("attended_at")
+  ticketTypeId      String?            @map("ticket_type_id")
+  ticketBenefits    Json?              @map("ticket_benefits")
+  certificate       Certificate?
+  event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participant       User               @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  ticketType        TicketType?        @relation(fields: [ticketTypeId], references: [id])
+  payments          Payment[]
+  refunds           Refund[]
+  tickets           Ticket[]
+
+  @@index([eventId, registeredAt])
+  @@index([participantId])
+  @@index([ticketTypeId])
+  @@unique([eventId, participantId])
+  @@map("event_registrations")
+}
+
+model OtpVerification {
+  id        Int        @id @default(autoincrement())
+  email     String
+  otpCode   String     @map("otp_code")
+  purpose   OtpPurpose
+  expiresAt DateTime   @map("expires_at")
+  isUsed    Boolean    @default(false) @map("is_used")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@map("otp_verifications")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    String?  @map("user_id")
+  action    String
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model Payment {
+  id               String             @id @default(uuid())
+  registrationId   String?            @map("registration_id")
+  eventId          String?            @map("event_id")
+  userId           String?            @map("user_id")
+  amount           Decimal            @db.Decimal(10, 2)
+  currency         String             @default("IDR")
+  paymentMethod    PaymentMethod      @map("payment_method")
+  paymentStatus    PaymentStatus      @map("payment_status")
+  paymentReference String?            @unique @map("payment_reference")
+  paymentUrl       String?            @map("payment_url")
+  qrCodeUrl        String?            @map("qr_code_url")
+  qrCodeData       String?            @map("qr_code_data")
+  paidAt           DateTime?          @map("paid_at")
+  expiredAt        DateTime?          @map("expired_at")
+  metadata         Json?
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  event            Event?             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registration     EventRegistration? @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  user             User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refunds          Refund[]
+
+  @@map("payments")
+}
+
+model Ticket {
+  id             String            @id @default(uuid())
+  registrationId String            @map("registration_id")
+  ticketNumber   String            @unique @map("ticket_number")
+  qrCodeUrl      String?           @map("qr_code_url")
+  qrCodeData     String?           @map("qr_code_data")
+  isUsed         Boolean           @default(false) @map("is_used")
+  usedAt         DateTime?         @map("used_at")
+  usedBy         String?           @map("used_by")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  registration   EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@map("tickets")
+}
+
+model AuditLog {
+  id             String          @id @default(cuid())
+  action         AuditAction
+  entityType     AuditEntityType @map("entity_type")
+  entityId       String          @map("entity_id")
+  performedBy    String          @map("performed_by")
+  performedAt    DateTime        @default(now()) @map("performed_at")
+  reason         String?
+  previousStatus String?         @map("previous_status")
+  newStatus      String?         @map("new_status")
+  notes          String?
+  ipAddress      String?         @map("ip_address")
+  userAgent      String?         @map("user_agent")
+  sessionId      String?         @map("session_id")
+  metadata       Json?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  performer      User            @relation("AuditPerformer", fields: [performedBy], references: [id])
+
+  @@index([performedBy])
+  @@index([entityType, entityId])
+  @@index([performedAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model Certificate {
+  id                String            @id @default(uuid())
+  registrationId    String            @unique @map("registration_id")
+  certificateNumber String            @unique @map("certificate_number")
+  certificateUrl    String            @map("certificate_url")
+  verificationHash  String?           @map("verification_hash")
+  issuedAt          DateTime          @default(now()) @map("issued_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  registration      EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([certificateNumber])
+  @@index([issuedAt])
+  @@map("certificates")
+}
+
+model CertificateTemplate {
+  id              String   @id @default(uuid())
+  eventId         String   @unique @map("event_id")
+  backgroundImage String?  @map("background_image")
+  backgroundSize  String   @default("cover") @map("background_size")
+  elements        Json
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("certificate_templates")
+}
+
+model GlobalCertificateTemplate {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  backgroundImage String?  @map("background_image")
+  backgroundSize  String   @default("cover") @map("background_size")
+  elements        Json
+  isDefault       Boolean  @default(false) @map("is_default")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdBy       String   @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  creator         User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([isDefault])
+  @@index([isActive])
+  @@map("global_certificate_templates")
+}
+
+model EventCancellation {
+  id                  String   @id @default(cuid())
+  eventId             String   @map("event_id")
+  reason              String
+  cancelledBy         String   @map("cancelled_by")
+  cancellationDate    DateTime @default(now()) @map("cancellation_date")
+  policy              String
+  refundRequired      Boolean  @default(false) @map("refund_required")
+  refundPercentage    Float    @default(100) @map("refund_percentage")
+  lateCancellationFee Float    @default(0) @map("late_cancellation_fee")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  event               Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  refunds             Refund[]
+
+  @@index([eventId])
+  @@index([cancellationDate])
+  @@map("event_cancellations")
+}
+
+model Refund {
+  id               String             @id @default(cuid())
+  paymentId        String             @map("payment_id")
+  registrationId   String             @map("registration_id")
+  cancellationId   String?            @map("cancellation_id")
+  refundAmount     Int                @map("refund_amount")
+  feeAmount        Int                @default(0) @map("fee_amount")
+  netRefund        Int                @map("net_refund")
+  refundPercentage Float              @map("refund_percentage")
+  refundStatus     RefundStatus       @default(PENDING) @map("refund_status")
+  refundMethod     PaymentMethod      @map("refund_method")
+  refundReference  String             @unique @map("refund_reference")
+  gatewayResponse  String?            @map("gateway_response")
+  refundedAt       DateTime?          @map("refunded_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  cancellation     EventCancellation? @relation(fields: [cancellationId], references: [id])
+  payment          Payment            @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  registration     EventRegistration  @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([registrationId])
+  @@index([refundReference])
+  @@index([refundStatus])
+  @@map("refunds")
+}
+
+model EventsHeader {
+  id          String   @id @default(uuid())
+  videoUrl    String   @map("video_url")
+  title       String
+  subtitle    String
+  description String
+  ctaText     String   @map("cta_text")
+  ctaLink     String   @map("cta_link")
+  logoUrl     String?  @map("logo_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("events_headers")
+}
+
+model PlatformAnalytics {
+  id                 String   @id @default(uuid())
+  date               DateTime @unique
+  totalEvents        Int      @map("total_events")
+  publishedEvents    Int      @map("published_events")
+  totalRegistrations Int      @map("total_registrations")
+  totalRevenue       Decimal  @map("total_revenue") @db.Decimal(12, 2)
+  platformFee        Decimal  @map("platform_fee") @db.Decimal(12, 2)
+  organizerRevenue   Decimal  @map("organizer_revenue") @db.Decimal(12, 2)
+  activeOrganizers   Int      @map("active_organizers")
+  newOrganizers      Int      @map("new_organizers")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([date])
+  @@map("platform_analytics")
+}
+
+model OrganizerRevenue {
+  id               String           @id @default(uuid())
+  organizerId      String           @map("organizer_id")
+  eventId          String           @map("event_id")
+  totalRevenue     Decimal          @map("total_revenue") @db.Decimal(10, 2)
+  platformFee      Decimal          @map("platform_fee") @db.Decimal(10, 2)
+  organizerAmount  Decimal          @map("organizer_amount") @db.Decimal(10, 2)
+  feePercentage    Decimal          @map("fee_percentage") @db.Decimal(5, 2)
+  settlementStatus SettlementStatus @default(PENDING) @map("settlement_status")
+  settledAt        DateTime?        @map("settled_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  event            Event            @relation(fields: [eventId], references: [id])
+  organizer        User             @relation(fields: [organizerId], references: [id])
+
+  @@index([organizerId])
+  @@index([eventId])
+  @@index([settlementStatus])
+  @@map("organizer_revenue")
+}
+
+model DepartmentTicket {
+  id             String          @id @default(uuid())
+  title          String
+  description    String?
+  department     Department
+  priority       TicketPriority  @default(MEDIUM)
+  status         TicketStatus    @default(OPEN)
+  category       TicketCategory
+  assignedTo     String?         @map("assigned_to")
+  createdBy      String          @map("created_by")
+  dueDate        DateTime?       @map("due_date")
+  completedAt    DateTime?       @map("completed_at")
+  tags           String[]
+  attachments    String[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  assignee       User?           @relation("TicketAssignee", fields: [assignedTo], references: [id])
+  creator        User            @relation("DepartmentTickets", fields: [createdBy], references: [id])
+  teamAssignment TeamAssignment?
+  comments       TicketComment[]
+
+  @@index([department])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([createdBy])
+  @@map("department_tickets")
+}
+
+model TicketComment {
+  id         String           @id @default(uuid())
+  ticketId   String           @map("ticket_id")
+  userId     String           @map("user_id")
+  content    String
+  isInternal Boolean          @default(false) @map("is_internal")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  ticket     DepartmentTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_comments")
+}
+
+model Team {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  teamType    TeamType         @map("team_type")
+  categories  String[]
+  isActive    Boolean          @default(true) @map("is_active")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  assignments TeamAssignment[]
+  members     TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(cuid())
+  teamId   String   @map("team_id")
+  userId   String   @map("user_id")
+  role     String   @default("MEMBER")
+  isActive Boolean  @default(true) @map("is_active")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model TeamAssignment {
+  id             String           @id @default(cuid())
+  ticketId       String           @unique @map("ticket_id")
+  teamId         String           @map("team_id")
+  assignedBy     String           @map("assigned_by")
+  assignedAt     DateTime         @default(now()) @map("assigned_at")
+  reason         String?
+  isAutoAssigned Boolean          @default(false) @map("is_auto_assigned")
+  assigner       User             @relation(fields: [assignedBy], references: [id], onDelete: Cascade)
+  team           Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  ticket         DepartmentTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("team_assignments")
+}
+
+model AssignmentQueue {
+  id         String             @id @default(uuid())
+  type       AssignmentType
+  itemId     String             @map("item_id")
+  priority   AssignmentPriority @default(NORMAL)
+  status     AssignmentStatus   @default(QUEUED)
+  assignedTo String?            @map("assigned_to")
+  queuedAt   DateTime           @default(now()) @map("queued_at")
+  assignedAt DateTime?          @map("assigned_at")
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  @@index([status, priority])
+  @@index([queuedAt])
+  @@map("assignment_queue")
+}
+
+model AssignmentHistory {
+  id        String   @id @default(uuid())
+  type      String   @map("type")
+  itemType  String   @map("item_type")
+  itemId    String   @map("item_id")
+  agentId   String?  @map("agent_id")
+  userId    String?  @map("user_id")
+  action    String
+  details   Json?
+  metadata  Json?
+  timestamp DateTime @default(now()) @map("timestamp")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  agent     User?    @relation("AgentHistory", fields: [agentId], references: [id])
+  user      User?    @relation("UserHistory", fields: [userId], references: [id])
+
+  @@index([itemType, itemId])
+  @@index([agentId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([type])
+  @@map("assignment_history")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  sentAt    DateTime?        @map("sent_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model garden {
+  id                     Int                      @id @default(autoincrement())
+  user_id                String
+  garden_name            String                   @db.VarChar(255)
+  location               String?                  @db.VarChar(500)
+  description            String?
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  users                  User                     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pump_command_logs      pump_command_logs[]
+  pump_execution_history pump_execution_history[]
+  pump_schedules         pump_schedules[]
+
+  @@index([user_id], map: "idx_garden_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model pump_command_logs {
+  id             Int             @id @default(autoincrement())
+  user_id        String
+  garden_id      Int
+  schedule_id    Int?
+  pump_id        Int
+  pump_name      String          @db.VarChar(255)
+  command_type   String          @db.VarChar(50)
+  mqtt_command   Json
+  mqtt_topic     String          @db.VarChar(255)
+  is_successful  Boolean         @default(true)
+  error_message  String?
+  executed_at    DateTime?       @default(now()) @db.Timestamp(6)
+  created_at     DateTime?       @default(now()) @db.Timestamp(6)
+  garden         garden          @relation(fields: [garden_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pump_schedules pump_schedules? @relation(fields: [schedule_id], references: [id], onUpdate: NoAction)
+  users          User            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([command_type], map: "idx_pump_command_logs_command_type")
+  @@index([executed_at], map: "idx_pump_command_logs_executed_at")
+  @@index([garden_id], map: "idx_pump_command_logs_garden_id")
+  @@index([schedule_id], map: "idx_pump_command_logs_schedule_id")
+  @@index([user_id], map: "idx_pump_command_logs_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model pump_execution_history {
+  id               Int             @id @default(autoincrement())
+  user_id          String
+  garden_id        Int
+  schedule_id      Int?
+  pump_id          Int
+  pump_name        String          @db.VarChar(255)
+  execution_type   String          @db.VarChar(50)
+  start_time       DateTime        @db.Timestamp(6)
+  end_time         DateTime?       @db.Timestamp(6)
+  duration_minutes Int?
+  is_completed     Boolean         @default(false)
+  created_at       DateTime?       @default(now()) @db.Timestamp(6)
+  garden           garden          @relation(fields: [garden_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pump_schedules   pump_schedules? @relation(fields: [schedule_id], references: [id], onUpdate: NoAction)
+  users            User            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([execution_type], map: "idx_pump_execution_history_execution_type")
+  @@index([garden_id], map: "idx_pump_execution_history_garden_id")
+  @@index([schedule_id], map: "idx_pump_execution_history_schedule_id")
+  @@index([start_time], map: "idx_pump_execution_history_start_time")
+  @@index([user_id], map: "idx_pump_execution_history_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model pump_schedules {
+  id                     Int                      @id @default(autoincrement())
+  user_id                String
+  garden_id              Int
+  schedule_name          String                   @db.VarChar(255)
+  pump_id                Int
+  pump_name              String                   @db.VarChar(255)
+  frequency              String                   @db.VarChar(50)
+  schedule_times         Json
+  duration_minutes       Int                      @default(5)
+  is_enabled             Boolean                  @default(true)
+  next_execution         DateTime?                @db.Timestamp(6)
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamp(6)
+  pump_command_logs      pump_command_logs[]
+  pump_execution_history pump_execution_history[]
+  garden                 garden                   @relation(fields: [garden_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                  User                     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([garden_id], map: "idx_pump_schedules_garden_id")
+  @@index([is_enabled], map: "idx_pump_schedules_is_enabled")
+  @@index([next_execution], map: "idx_pump_schedules_next_execution")
+  @@index([user_id], map: "idx_pump_schedules_user_id")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  CS_HEAD
+  CS_SENIOR_AGENT
+  CS_AGENT
+  OPS_HEAD
+  OPS_SENIOR_AGENT
+  OPS_AGENT
+  FINANCE_HEAD
+  FINANCE_SENIOR_AGENT
+  FINANCE_AGENT
+  ORGANIZER
+  PARTICIPANT
+
+  @@map("user_role")
+}
+
+enum AuditAction {
+  APPROVE
+  DECLINE
+  ASSIGN
+  REASSIGN
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  VIEW
+  EXPORT
+
+  @@map("audit_action")
+}
+
+enum AuditEntityType {
+  EVENT
+  ORGANIZER
+  USER
+  TICKET
+  ASSIGNMENT
+
+  @@map("audit_entity_type")
+}
+
+enum Department {
+  CUSTOMER_SUCCESS
+  OPERATIONS
+  FINANCE
+  ORGANIZER
+  PARTICIPANT
+
+  @@map("department")
+}
+
+enum UserPosition {
+  SUPER_ADMIN
+  HEAD
+  SENIOR_AGENT
+  AGENT
+  ORGANIZER
+  PARTICIPANT
+
+  @@map("user_position")
+}
+
+enum EventCategory {
+  ACADEMIC
+  SPORTS
+  ARTS
+  CULTURE
+  TECHNOLOGY
+  BUSINESS
+  HEALTH
+  EDUCATION
+  ENTERTAINMENT
+  OTHER
+
+  @@map("event_category")
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+
+  @@map("otp_purpose")
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  E_WALLET
+  CREDIT_CARD
+  QR_CODE
+  CASH
+  CRYPTO
+  GATEWAY
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  ACTIVE
+  CANCELLED
+  REFUNDED
+  COMPLETED
+
+  @@map("registration_status")
+}
+
+enum OrganizerType {
+  INDIVIDUAL
+  COMMUNITY
+  SMALL_BUSINESS
+  INSTITUTION
+
+  @@map("organizer_type")
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("verification_status")
+}
+
+enum EventStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
+  REJECTED
+  COMPLETED
+  CANCELLED
+
+  @@map("event_status")
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("settlement_status")
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+
+  @@map("ticket_priority")
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_REVIEW
+  RESOLVED
+  CLOSED
+  CANCELLED
+
+  @@map("ticket_status")
+}
+
+enum AssignmentType {
+  EVENT
+  ORGANIZER
+
+  @@map("assignment_type")
+}
+
+enum AssignmentPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("assignment_priority")
+}
+
+enum AssignmentStatus {
+  QUEUED
+  ASSIGNED
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("assignment_status")
+}
+
+enum TicketCategory {
+  CUSTOMER_SUPPORT
+  EVENT_MANAGEMENT
+  PAYMENT_ISSUE
+  TECHNICAL_ISSUE
+  ORGANIZER_SUPPORT
+  FINANCE_QUERY
+  GENERAL_INQUIRY
+  MARKETING_INQUIRY
+
+  @@map("ticket_category")
+}
+
+enum TeamType {
+  PAYMENT_FINANCE
+  TECHNICAL_SUPPORT
+  GENERAL_SUPPORT
+}
+
+enum NotificationType {
+  EVENT_REMINDER_H1
+  EVENT_REMINDER_H0
+  REGISTRATION_CONFIRMED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  CERTIFICATE_READY
+  EVENT_CANCELLED
+  EVENT_UPDATED
+  UPGRADE_APPROVED
+  UPGRADE_REJECTED
+  NEW_REGISTRATION
+  GENERAL
+
+  @@map("notification_type")
+}

@@ -1,0 +1,86 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Database Monitoring",
+    "tags": [
+      "database",
+      "postgresql"
+    ],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Database Connections",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends",
+            "legendFormat": "Active Connections"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Query Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(pg_stat_statements_calls[5m])",
+            "legendFormat": "Queries/sec"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Database Size",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "pg_database_size_bytes",
+            "legendFormat": "Database Size"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "Slow Queries",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, pg_stat_statements_mean_time)",
+            "legendFormat": "Slow Queries"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

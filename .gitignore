@@ -1,0 +1,122 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+*.build/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+.env.backup*
+.env.bak
+*.env.backup
+*.env.bak
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+backend.log
+tunnel.log
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+
+# Prisma
+prisma/migrations/*.sql
+!prisma/migrations/migration_lock.toml
+
+# Uploads and generated files
+uploads/
+public/uploads/
+backend/public/uploads/
+backend/uploads/
+*.xlsx
+*.xls
+*.pdf
+*.zip
+
+# Cache
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Flutter/Dart
+mobileapp/.dart_tool/
+mobileapp/.flutter-plugins
+mobileapp/.flutter-plugins-dependencies
+mobileapp/.packages
+mobileapp/.pub-cache/
+mobileapp/.pub/
+mobileapp/build/
+mobileapp/.ios/
+mobileapp/.android/
+mobileapp/.idea/
+mobileapp/*.iml
+mobileapp/local.properties
+mobileapp/.fvm/
+
+# Docker
+docker-compose.override.yml
+
+# Monitoring
+monitoring/data/
+
+# Railway
+.railway/
+
+# Misc
+*.pem
+*.key
+*.crt
+*.cert
+

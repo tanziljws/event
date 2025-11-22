@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Confirmation - Event Management System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .event-details {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .registration-token {
+            background-color: #e7f3ff;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .token-code {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            letter-spacing: 2px;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .qr-code-section {
+            background-color: #f8f9fa;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .qr-code-container {
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Event Management System</div>
+        </div>
+        
+        <div class="content">
+            <h2>Registration Confirmed!</h2>
+            <p>Hello {{fullName}}!</p>
+            <p>Your registration for the following event has been confirmed:</p>
+            
+            <div class="event-details">
+                <h3>{{eventTitle}}</h3>
+                <p><strong>Date:</strong> {{eventDate}}</p>
+                <p><strong>Time:</strong> {{eventTime}}</p>
+                <p><strong>Location:</strong> {{location}}</p>
+            </div>
+            
+            <div class="registration-token">
+                <h4>Your Registration Token</h4>
+                <div class="token-code">{{registrationToken}}</div>
+                <p>Keep this token safe! You'll need it for attendance.</p>
+            </div>
+            
+            <div class="qr-code-section">
+                <h4>📱 QR Code Ticket</h4>
+                <div class="qr-code-container">
+                    <img src="{{qrCodeUrl}}" alt="QR Code Ticket" style="max-width: 200px; height: auto; border: 2px solid #007bff; border-radius: 8px;">
+                </div>
+                <p><strong>Scan this QR code at the event for quick check-in!</strong></p>
+                <p style="font-size: 12px; color: #666;">You can also access your ticket at: <a href="{{ticketUrl}}" style="color: #007bff;">{{ticketUrl}}</a></p>
+            </div>
+            
+            <div class="warning">
+                <strong>Important:</strong>
+                <ul>
+                    <li>Please arrive on time for the event</li>
+                    <li>Bring this registration token for attendance</li>
+                    <li>Contact us if you need to cancel your registration</li>
+                </ul>
+            </div>
+            
+            <p>We look forward to seeing you at the event!</p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated message, please do not reply to this email.</p>
+            <p>&copy; 2024 Event Management System. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

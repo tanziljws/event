@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akun Organizer Disetujui</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        .title {
+            color: #059669;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .highlight {
+            background-color: #f0f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #2563eb;
+            margin: 20px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .cta-button:hover {
+            background-color: #1d4ed8;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .features {
+            margin: 20px 0;
+        }
+        .feature {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .feature-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            color: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">NUSA Event Management</div>
+            <h1 class="title">🎉 Selamat! Akun Organizer Anda Telah Disetujui</h1>
+        </div>
+
+        <div class="content">
+            <p>Halo <strong>{{fullName}}</strong>,</p>
+            
+            <p>Kabar baik! Permohonan Anda untuk menjadi Event Organizer telah <strong>disetujui</strong> pada {{approvalDate}}.</p>
+
+            <div class="highlight">
+                <h3>🎯 Apa yang bisa Anda lakukan sekarang?</h3>
+                <div class="features">
+                    <div class="feature">
+                        <span class="feature-icon">📅</span>
+                        <span>Buat dan kelola event Anda</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">👥</span>
+                        <span>Kelola peserta dan registrasi</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">📊</span>
+                        <span>Akses dashboard analytics</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">💳</span>
+                        <span>Kelola pembayaran dan revenue</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🏆</span>
+                        <span>Generate sertifikat peserta</span>
+                    </div>
+                </div>
+            </div>
+
+            <p>Silakan login ke dashboard organizer Anda untuk mulai membuat event pertama Anda!</p>
+
+            <div style="text-align: center;">
+                <a href="{{dashboardUrl}}" class="cta-button">🚀 Masuk ke Dashboard Organizer</a>
+            </div>
+
+            <p><strong>Tips untuk memulai:</strong></p>
+            <ul>
+                <li>Lengkapi profil organizer Anda</li>
+                <li>Buat event pertama dengan detail yang menarik</li>
+                <li>Gunakan fitur analytics untuk memahami peserta Anda</li>
+                <li>Jangan ragu untuk menghubungi tim support jika ada pertanyaan</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>Jika Anda memiliki pertanyaan, silakan hubungi kami di <a href="mailto:{{supportEmail}}">{{supportEmail}}</a></p>
+            <p>© 2025 NUSA Event Management. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
