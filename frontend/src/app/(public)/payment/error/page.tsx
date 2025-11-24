@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AlertCircle, Loader2, ArrowRight, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
-export default function PaymentErrorPage() {
+function PaymentErrorContent() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [errorData, setErrorData] = useState<any>(null)
@@ -102,6 +102,21 @@ export default function PaymentErrorPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PaymentErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 text-red-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Memuat...</p>
+        </div>
+      </div>
+    }>
+      <PaymentErrorContent />
+    </Suspense>
   )
 }
 

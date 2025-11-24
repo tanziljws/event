@@ -40,8 +40,8 @@ const nextConfig = {
       'react-icons',
       'leaflet',
     ],
-    // Enable CSS optimization in production
-    optimizeCss: !isDev,
+    // Enable CSS optimization in production (disabled due to critters dependency)
+    optimizeCss: false,
     // Turbopack optimizations - simplified for faster startup
     turbo: {
       // Minimal rules for faster startup

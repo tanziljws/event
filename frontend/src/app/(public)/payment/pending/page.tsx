@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Clock, Loader2, Calendar, ArrowRight, RefreshCw, CheckCircle } from 'lucide-react'
 import { ApiService } from '@/lib/api'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 
-export default function PaymentPendingPage() {
+function PaymentPendingContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
@@ -306,6 +306,21 @@ export default function PaymentPendingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PaymentPendingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 text-yellow-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Memuat...</p>
+        </div>
+      </div>
+    }>
+      <PaymentPendingContent />
+    </Suspense>
   )
 }
 
