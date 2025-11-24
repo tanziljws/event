@@ -14,8 +14,6 @@ interface VerifyEmailForm {
 }
 
 function VerifyEmailPageContent() {
-
-function VerifyEmailPage() {
   const { verifyEmail, resendOtp, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [countdown, setCountdown] = useState(0);
