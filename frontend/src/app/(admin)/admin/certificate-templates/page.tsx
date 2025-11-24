@@ -7,10 +7,10 @@ import { LoadingSpinner } from '@/components/ui/loading'
 import { SkeletonCertificateTemplates } from '@/components/ui/skeleton'
 import { ApiService } from '@/lib/api'
 import { SimpleElementEditor } from '@/components/certificate/SimpleElementEditor'
-import { 
-  Calendar, 
-  FileText, 
-  Edit, 
+import {
+  Calendar,
+  FileText,
+  Edit,
   Eye,
   Plus,
   Download,
@@ -78,7 +78,7 @@ export default function CertificateTemplatesPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [showTemplateEditor, setShowTemplateEditor] = useState(false)
-  
+
   // Template editor states
   const [backgroundImage, setBackgroundImage] = useState<string>('')
   const [isUploading, setIsUploading] = useState(false)
@@ -91,11 +91,11 @@ export default function CertificateTemplatesPage() {
   const [currentSignatureElement, setCurrentSignatureElement] = useState<SimpleSignatureElement | null>(null)
   const [showCustomTextModal, setShowCustomTextModal] = useState(false)
   const [customTextInput, setCustomTextInput] = useState('')
-  
+
   const exportRef = useRef<HTMLDivElement>(null)
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-  
+
   // Element properties state for sidebar
   const [selectedElementForEdit, setSelectedElementForEdit] = useState<SimpleElement | null>(null)
 
@@ -106,29 +106,29 @@ export default function CertificateTemplatesPage() {
   const fetchEvents = async () => {
     try {
       setLoading(true)
-      const response = await ApiService.getCertificateTemplates({ 
-        page: 1, 
+      const response = await ApiService.getCertificateTemplates({
+        page: 1,
         limit: 100
       })
-      
+
       if (response.success) {
         // Get events with template status
-        const eventsResponse = await ApiService.getEvents({ 
-          page: 1, 
+        const eventsResponse = await ApiService.getEvents({
+          page: 1,
           limit: 100
         })
-        
+
         if (eventsResponse.success) {
           const events = eventsResponse.data.events || []
           const templates = response.data.templates || []
-          
+
           // Add template status to events
           const eventsWithStatus = events.map((event: any) => ({
             ...event,
             hasCertificateTemplate: templates.some((template: any) => template.eventId === event.id),
             certificateTemplateUrl: templates.find((template: any) => template.eventId === event.id)?.backgroundImage
           }))
-          
+
           setEvents(eventsWithStatus)
         } else {
           setError('Failed to fetch events')
@@ -161,7 +161,7 @@ export default function CertificateTemplatesPage() {
     try {
       setSelectedEvent(event)
       setShowTemplateEditor(true)
-      
+
       // Load existing template data
       const response = await ApiService.getCertificateTemplate(event.id)
       if (response.success && response.data) {
@@ -191,7 +191,7 @@ export default function CertificateTemplatesPage() {
     try {
       setSelectedEvent(event)
       setShowTemplateEditor(true)
-      
+
       // Load existing template data for view only
       const response = await ApiService.getCertificateTemplate(event.id)
       if (response.success && response.data) {
@@ -225,10 +225,10 @@ export default function CertificateTemplatesPage() {
   }
 
   const addTextElement = (type: 'user_name' | 'event_name' | 'custom' = textElementType, customText?: string) => {
-    const textContent = type === 'user_name' ? '[Nama Peserta]' : 
-                       type === 'event_name' ? '[Nama Event]' : 
-                       customText || 'Custom Text'
-    
+    const textContent = type === 'user_name' ? '[Nama Peserta]' :
+      type === 'event_name' ? '[Nama Event]' :
+        customText || 'Custom Text'
+
     // Set default font based on element type
     const getDefaultFont = (elementType: string) => {
       switch (elementType) {
@@ -240,7 +240,7 @@ export default function CertificateTemplatesPage() {
           return 'Inter' // Standard font for custom text
       }
     }
-    
+
     const newElement: SimpleTextElement = {
       id: `element-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: 'text',
@@ -254,7 +254,7 @@ export default function CertificateTemplatesPage() {
       isDynamic: type !== 'custom',
       dynamicType: type === 'custom' ? undefined : type
     }
-    
+
     setElements([...elements, newElement])
     setSelectedElementId(newElement.id)
   }
@@ -269,7 +269,7 @@ export default function CertificateTemplatesPage() {
       signatureData: '',
       label: ''
     }
-    
+
     setElements([...elements, newSignatureElement])
     setCurrentSignatureElement(newSignatureElement)
     setShowSignatureModal(true)
@@ -291,27 +291,27 @@ export default function CertificateTemplatesPage() {
   const handleSaveTemplate = async () => {
     try {
       setIsExporting(true)
-      
+
       if (!selectedEvent) {
         throw new Error('No event selected')
       }
-      
+
       // Validate template data
       if (!backgroundImage) {
         throw new Error('Please upload a background image first')
       }
-      
+
       if (!elements || elements.length === 0) {
         throw new Error('Please add at least one text or signature element')
       }
-      
+
       // Prepare template data
       const templateData = {
         backgroundImage,
         backgroundSize,
         elements
       }
-      
+
       console.log('Saving template data:', {
         eventId: selectedEvent.id,
         templateData,
@@ -321,23 +321,23 @@ export default function CertificateTemplatesPage() {
         elementsIsArray: Array.isArray(elements),
         elementsStringified: JSON.stringify(elements)
       })
-      
+
       // Save to database via API
       const response = await ApiService.saveCertificateTemplate(selectedEvent.id, templateData)
-      
+
       if (response.success) {
         // Close editor
         setShowTemplateEditor(false)
         setSelectedEvent(null)
-        
+
         // Reset states
         setBackgroundImage('')
         setElements([])
         setSelectedElementId(null)
-        
+
         // Refresh events list
         await fetchEvents()
-        
+
         // Show success message
         alert('Certificate template saved successfully!')
       } else {
@@ -345,7 +345,7 @@ export default function CertificateTemplatesPage() {
       }
     } catch (err) {
       console.error('Save template error:', err)
-      
+
       // Show detailed error message to user
       const errorMessage = (err as Error).message || 'Failed to save certificate template'
       alert(`Error: ${errorMessage}`)
@@ -362,13 +362,13 @@ export default function CertificateTemplatesPage() {
   const handleSignatureSave = () => {
     if (signatureCanvasRef.current && currentSignatureElement) {
       const signatureData = signatureCanvasRef.current.toDataURL()
-      
-      setElements(elements.map(el => 
-        el.id === currentSignatureElement.id 
+
+      setElements(elements.map(el =>
+        el.id === currentSignatureElement.id
           ? { ...el, signatureData }
           : el
       ))
-      
+
       setShowSignatureModal(false)
       setCurrentSignatureElement(null)
     }
@@ -465,8 +465,8 @@ export default function CertificateTemplatesPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowTemplateEditor(false)
                 setSelectedEvent(null)
@@ -523,26 +523,26 @@ export default function CertificateTemplatesPage() {
                     Add Text Element
                   </label>
                   <div className="space-y-2">
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="w-full justify-start"
                       onClick={() => addTextElement('user_name')}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Participant Name
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="w-full justify-start"
                       onClick={() => addTextElement('event_name')}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Event Name
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="w-full justify-start"
                       onClick={openCustomTextModal}
                     >
@@ -556,9 +556,9 @@ export default function CertificateTemplatesPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Add Signature
                   </label>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
+                  <Button
+                    size="sm"
+                    variant="outline"
                     className="w-full justify-start"
                     onClick={addSignatureElement}
                   >
@@ -598,8 +598,8 @@ export default function CertificateTemplatesPage() {
                                 max="120"
                                 value={(selectedElementForEdit as SimpleTextElement).fontSize}
                                 onChange={(e) => {
-                                  const newElements = elements.map(el => 
-                                    el.id === selectedElementForEdit.id 
+                                  const newElements = elements.map(el =>
+                                    el.id === selectedElementForEdit.id
                                       ? { ...el, fontSize: parseInt(e.target.value) }
                                       : el
                                   )
@@ -620,8 +620,8 @@ export default function CertificateTemplatesPage() {
                             <select
                               value={(selectedElementForEdit as SimpleTextElement).fontFamily}
                               onChange={(e) => {
-                                const newElements = elements.map(el => 
-                                  el.id === selectedElementForEdit.id 
+                                const newElements = elements.map(el =>
+                                  el.id === selectedElementForEdit.id
                                     ? { ...el, fontFamily: e.target.value }
                                     : el
                                 )
@@ -684,8 +684,8 @@ export default function CertificateTemplatesPage() {
                             <select
                               value={(selectedElementForEdit as SimpleTextElement).fontWeight}
                               onChange={(e) => {
-                                const newElements = elements.map(el => 
-                                  el.id === selectedElementForEdit.id 
+                                const newElements = elements.map(el =>
+                                  el.id === selectedElementForEdit.id
                                     ? { ...el, fontWeight: e.target.value as 'normal' | 'bold' }
                                     : el
                                 )
@@ -707,8 +707,8 @@ export default function CertificateTemplatesPage() {
                                 type="color"
                                 value={(selectedElementForEdit as SimpleTextElement).color}
                                 onChange={(e) => {
-                                  const newElements = elements.map(el => 
-                                    el.id === selectedElementForEdit.id 
+                                  const newElements = elements.map(el =>
+                                    el.id === selectedElementForEdit.id
                                       ? { ...el, color: e.target.value }
                                       : el
                                   )
@@ -721,8 +721,8 @@ export default function CertificateTemplatesPage() {
                                 type="text"
                                 value={(selectedElementForEdit as SimpleTextElement).color}
                                 onChange={(e) => {
-                                  const newElements = elements.map(el => 
-                                    el.id === selectedElementForEdit.id 
+                                  const newElements = elements.map(el =>
+                                    el.id === selectedElementForEdit.id
                                       ? { ...el, color: e.target.value }
                                       : el
                                   )
@@ -742,19 +742,18 @@ export default function CertificateTemplatesPage() {
                                 <button
                                   key={align}
                                   onClick={() => {
-                                    const newElements = elements.map(el => 
-                                      el.id === selectedElementForEdit.id 
+                                    const newElements = elements.map(el =>
+                                      el.id === selectedElementForEdit.id
                                         ? { ...el, textAlign: align as 'left' | 'center' | 'right' }
                                         : el
                                     )
                                     setElements(newElements)
                                     setSelectedElementForEdit({ ...selectedElementForEdit, textAlign: align as 'left' | 'center' | 'right' } as SimpleTextElement)
                                   }}
-                                  className={`px-2 py-1 text-xs rounded ${
-                                    (selectedElementForEdit as SimpleTextElement).textAlign === align
+                                  className={`px-2 py-1 text-xs rounded ${(selectedElementForEdit as SimpleTextElement).textAlign === align
                                       ? 'bg-blue-500 text-white'
                                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                  }`}
+                                    }`}
                                 >
                                   {align.charAt(0).toUpperCase() + align.slice(1)}
                                 </button>
@@ -773,8 +772,8 @@ export default function CertificateTemplatesPage() {
                               type="text"
                               value={(selectedElementForEdit as SimpleSignatureElement).label || ''}
                               onChange={(e) => {
-                                const newElements = elements.map(el => 
-                                  el.id === selectedElementForEdit.id 
+                                const newElements = elements.map(el =>
+                                  el.id === selectedElementForEdit.id
                                     ? { ...el, label: e.target.value }
                                     : el
                                 )
@@ -816,7 +815,7 @@ export default function CertificateTemplatesPage() {
                 )}
 
                 <div className="pt-4 border-t">
-                  <Button 
+                  <Button
                     className="w-full"
                     onClick={handleSaveTemplate}
                     disabled={isExporting}
@@ -849,7 +848,7 @@ export default function CertificateTemplatesPage() {
               </CardHeader>
               <CardContent>
                 <div className="relative">
-                  <div 
+                  <div
                     ref={exportRef}
                     className="relative w-full aspect-[4/3] bg-gray-50 border-2 border-gray-300 rounded-lg overflow-hidden"
                     style={{
@@ -868,7 +867,7 @@ export default function CertificateTemplatesPage() {
                         </div>
                       </div>
                     )}
-                    
+
                     <SimpleElementEditor
                       elements={elements}
                       onElementsChange={setElements}
@@ -898,7 +897,7 @@ export default function CertificateTemplatesPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              
+
               <div className="mb-4" style={{ width: '400px', height: '200px', border: '3px solid #e5e7eb', borderRadius: '8px', backgroundColor: 'white' }}>
                 <canvas
                   ref={signatureCanvasRef}
@@ -930,9 +929,9 @@ export default function CertificateTemplatesPage() {
                     e.preventDefault()
                     stopDrawing()
                   }}
-                  style={{ 
-                    width: '100%', 
-                    height: '100%', 
+                  style={{
+                    width: '100%',
+                    height: '100%',
                     cursor: 'crosshair',
                     borderRadius: '8px',
                     touchAction: 'none',
@@ -940,17 +939,17 @@ export default function CertificateTemplatesPage() {
                   }}
                 />
               </div>
-              
+
               <div className="text-xs text-gray-500 mb-2">
-                Canvas Status: {signatureCanvasRef.current ? '✅ Loaded' : '❌ Not Loaded'} | 
+                Canvas Status: {signatureCanvasRef.current ? '✅ Loaded' : '❌ Not Loaded'} |
                 Drawing: {isDrawing ? '🖊️ Active' : '⏸️ Inactive'}
               </div>
-              
+
               <div className="flex gap-2">
                 <Button onClick={handleSignatureClear} variant="outline">
                   Clear
                 </Button>
-                <Button 
+                <Button
                   onClick={() => {
                     // Test drawing
                     const canvas = signatureCanvasRef.current
@@ -991,7 +990,7 @@ export default function CertificateTemplatesPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Custom Text Content
@@ -1010,16 +1009,16 @@ export default function CertificateTemplatesPage() {
                   }}
                 />
               </div>
-              
+
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowCustomTextModal(false)}
                   className="flex-1"
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleCustomTextSubmit}
                   disabled={!customTextInput.trim()}
                   className="flex-1"
@@ -1047,7 +1046,36 @@ export default function CertificateTemplatesPage() {
       {/* Events List */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {events.map((event) => (
-          <Card key={event.id} className="hover:shadow-lg transition-shadow">
+          <Card key={event.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+            {/* Template Preview Thumbnail */}
+            {event.hasCertificateTemplate && event.certificateTemplateUrl ? (
+              <div className="relative h-48 bg-gray-100 overflow-hidden">
+                <img
+                  src={event.certificateTemplateUrl}
+                  alt={`${event.title} certificate template`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2 right-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500 text-white shadow-md">
+                    <FileText className="mr-1 h-3 w-3" />
+                    Template Ready
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                <div className="text-center">
+                  <FileText className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-500">No Template</p>
+                </div>
+                <div className="absolute top-2 right-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
+                    No Template
+                  </span>
+                </div>
+              </div>
+            )}
+
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -1062,18 +1090,6 @@ export default function CertificateTemplatesPage() {
                     </div>
                   </CardDescription>
                 </div>
-                <div className="ml-4">
-                  {event.hasCertificateTemplate ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      <FileText className="mr-1 h-3 w-3" />
-                      Template Ready
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      No Template
-                    </span>
-                  )}
-                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -1084,16 +1100,16 @@ export default function CertificateTemplatesPage() {
                 <div className="flex gap-2">
                   {event.hasCertificateTemplate ? (
                     <>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleViewTemplate(event)}
                       >
                         <Eye className="mr-1 h-4 w-4" />
                         View
                       </Button>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={() => handleEditTemplate(event)}
                       >
                         <Edit className="mr-1 h-4 w-4" />
@@ -1101,8 +1117,8 @@ export default function CertificateTemplatesPage() {
                       </Button>
                     </>
                   ) : (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => handleCreateTemplate(event)}
                     >
                       <Plus className="mr-1 h-4 w-4" />

@@ -46,15 +46,23 @@ export default function TicketTypeSelector({
   disabled = false
 }: TicketTypeSelectorProps) {
   const [quantities, setQuantities] = useState<{ [key: string]: number }>({})
+  const [activeTabId, setActiveTabId] = useState<string>('')
 
-  // Initialize quantities
+  // Initialize quantities and active tab
   useEffect(() => {
     const initialQuantities: { [key: string]: number } = {}
     ticketTypes.forEach(ticket => {
       initialQuantities[ticket.id] = initialQuantity
     })
     setQuantities(initialQuantities)
-  }, [ticketTypes, initialQuantity])
+
+    // Set active tab to selected ticket or first available
+    if (selectedTicketTypeId) {
+      setActiveTabId(selectedTicketTypeId)
+    } else if (ticketTypes.length > 0 && !activeTabId) {
+      setActiveTabId(ticketTypes[0].id)
+    }
+  }, [ticketTypes, initialQuantity, selectedTicketTypeId])
 
   const handleQuantityChange = (e: React.MouseEvent, ticketId: string, delta: number) => {
     e.stopPropagation() // Prevent card selection when changing quantity
@@ -106,9 +114,43 @@ export default function TicketTypeSelector({
     )
   }
 
+  const activeTicket = ticketTypes.find(t => t.id === activeTabId) || ticketTypes[0]
+
   return (
-    <div className="space-y-4">
-      {ticketTypes.map((ticket) => {
+    <div className="space-y-6">
+      {/* Tabs Navigation */}
+      <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
+        {ticketTypes.map((ticket) => {
+          const isActive = activeTabId === ticket.id
+          const isSoldOut = (ticket.remainingCapacity ?? (ticket.capacity - (ticket.soldCount || 0))) <= 0
+          const ticketColor = getTicketColor(ticket.color)
+
+          return (
+            <button
+              key={ticket.id}
+              onClick={() => setActiveTabId(ticket.id)}
+              className={`
+                flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                ${isActive
+                  ? 'text-white shadow-md transform scale-105'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }
+                ${isSoldOut ? 'opacity-60' : ''}
+              `}
+              style={isActive ? { backgroundColor: ticketColor } : {}}
+            >
+              <div className="flex items-center gap-2">
+                {isActive && <Check className="w-3 h-3" />}
+                {ticket.name}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Active Ticket Card */}
+      {activeTicket && (() => {
+        const ticket = activeTicket
         const isSelected = selectedTicketTypeId === ticket.id
         const isSoldOut = (ticket.remainingCapacity ?? (ticket.capacity - (ticket.soldCount || 0))) <= 0
         const currentQuantity = quantities[ticket.id] || 1
@@ -129,8 +171,8 @@ export default function TicketTypeSelector({
             `}
           >
             {/* Ticket Container */}
-            <div className="bg-white rounded-xl overflow-hidden border border-gray-200">
-              <div className="flex flex-col md:flex-row">
+            <div className="bg-white rounded-xl overflow-hidden border border-gray-200 min-h-[280px] flex flex-col">
+              <div className="flex flex-col md:flex-row flex-1">
                 {/* Left Side - Main Content (70%) */}
                 <div className="flex-1 p-4 md:p-5 relative">
                   {/* Header */}
@@ -227,7 +269,7 @@ export default function TicketTypeSelector({
 
                 {/* Right Side - Stub (30%) */}
                 <div
-                  className="w-full md:w-48 p-4 md:p-5 flex flex-col items-center justify-between border-l-0 md:border-l border-dashed border-gray-200 relative"
+                  className="w-full md:w-48 p-4 md:p-5 flex flex-col items-center justify-center border-l-0 md:border-l border-dashed border-gray-200 relative"
                   style={{ backgroundColor: ticketColor }}
                 >
                   {/* Selection Indicator */}
@@ -280,27 +322,13 @@ export default function TicketTypeSelector({
                     )}
                   </div>
 
-                  {/* Barcode Visual */}
-                  <div className="w-full mt-4 opacity-40">
-                    <div className="h-6 w-full flex items-end justify-center gap-[2px] overflow-hidden">
-                      {[...Array(25)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="bg-white"
-                          style={{
-                            width: Math.random() > 0.5 ? '1px' : '2px',
-                            height: `${Math.random() * 50 + 50}%`
-                          }}
-                        ></div>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Barcode Visual Removed as requested */}
                 </div>
               </div>
             </div>
           </div>
         )
-      })}
+      })()}
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, X, Star, Zap, Crown, Users, Calendar, CreditCard, Shield, Headphones, BarChart3, Globe, FileText, QrCode, Award, CalendarDays, UserCheck, FileImage, TrendingUp, Palette, MessageCircle, Building2, Code, UserCog, Plug } from 'lucide-react'
+import { Check, X, Star, Zap, Crown, Users, Calendar, CreditCard, Shield, Headphones, BarChart3, Globe, FileText, QrCode, Award, CalendarDays, UserCheck, FileImage, TrendingUp, Palette, MessageCircle, Building2, Code, UserCog, Plug, Clock } from 'lucide-react'
 import Navbar from '@/components/navbar'
 import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
@@ -30,7 +30,7 @@ export default function PricingPage() {
 
   const pricingPlans = [
     {
-      name: 'Pro',
+      name: 'Basic',
       description: 'Paket ideal untuk event organizer pemula',
       icon: Zap,
       color: 'blue',
@@ -311,8 +311,12 @@ export default function PricingPage() {
                   return (
                     <div 
                       key={plan.name}
-                      className={`group relative p-8 border-2 border-gray-200 h-full flex flex-col transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
-                        plan.name === 'Pro' 
+                      className={`group relative p-8 border-2 border-gray-200 h-full flex flex-col transition-all duration-300 ${
+                        plan.name === 'Premium' || plan.name === 'Supervisor'
+                          ? 'opacity-90'
+                          : 'hover:scale-105 hover:shadow-2xl'
+                      } ${
+                        plan.name === 'Basic' 
                           ? 'hover:bg-blue-500 hover:border-blue-400' 
                           : plan.name === 'Premium'
                           ? 'hover:bg-purple-500 hover:border-purple-400'
@@ -321,9 +325,24 @@ export default function PricingPage() {
                         isRecommended ? 'md:order-2' : index === 0 ? 'md:order-1' : 'md:order-3'
                       }`}
                     >
+                      {/* Coming Soon Overlay with Strong Blur for Premium and Supervisor */}
+                      {(plan.name === 'Premium' || plan.name === 'Supervisor') && (
+                        <>
+                          <div 
+                            className="absolute inset-0 bg-white/90 backdrop-blur-xl rounded-lg z-10 pointer-events-none"
+                            style={{ 
+                              backdropFilter: 'blur(12px)',
+                              WebkitBackdropFilter: 'blur(12px)',
+                              filter: 'blur(8px)'
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-br from-gray-900/15 to-gray-800/15 rounded-lg z-10 pointer-events-none" />
+                        </>
+                      )}
+
                       {/* Badge */}
-                      {plan.badge && (
-                        <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
+                      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2 z-20">
+                        {plan.badge && (
                           <Badge 
                             className={`pricing-badge px-6 py-2 text-sm font-medium whitespace-nowrap ${
                               plan.badge === 'Rekomendasi' 
@@ -335,20 +354,36 @@ export default function PricingPage() {
                           >
                             {plan.badge}
                           </Badge>
-                        </div>
-                      )}
+                        )}
+                        {(plan.name === 'Premium' || plan.name === 'Supervisor') && (
+                          <Badge 
+                            className="px-4 py-1.5 text-xs font-semibold whitespace-nowrap bg-amber-500 text-white flex items-center gap-1.5 animate-pulse"
+                          >
+                            <Clock className="w-3 h-3" />
+                            Coming Soon
+                          </Badge>
+                        )}
+                      </div>
 
                       {/* Header */}
-                      <div className="text-center pb-6">
+                      <div 
+                        className={`text-center pb-6 relative z-0 ${(plan.name === 'Premium' || plan.name === 'Supervisor') ? '' : ''}`}
+                        style={(plan.name === 'Premium' || plan.name === 'Supervisor') ? {
+                          filter: 'blur(8px)',
+                          WebkitFilter: 'blur(8px)',
+                          userSelect: 'none',
+                          pointerEvents: 'none'
+                        } : {}}
+                      >
                         <div className={`mx-auto w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 transition-all duration-300 ${
-                          plan.name === 'Pro' 
+                          plan.name === 'Basic' 
                             ? 'group-hover:bg-blue-200' 
                             : plan.name === 'Premium'
                             ? 'group-hover:bg-purple-200'
                             : 'group-hover:bg-yellow-200'
                         }`}>
                           <Icon className={`w-8 h-8 text-gray-600 transition-all duration-300 ${
-                            plan.name === 'Pro' 
+                            plan.name === 'Basic' 
                               ? 'group-hover:text-blue-600' 
                               : plan.name === 'Premium'
                               ? 'group-hover:text-purple-600'
@@ -356,7 +391,7 @@ export default function PricingPage() {
                           }`} />
                         </div>
                         <h3 className={`text-2xl font-semibold text-gray-900 mb-2 transition-all duration-300 ${
-                          plan.name === 'Pro' 
+                          plan.name === 'Basic' 
                             ? 'group-hover:text-white' 
                             : plan.name === 'Premium'
                             ? 'group-hover:text-white'
@@ -365,7 +400,7 @@ export default function PricingPage() {
                           {plan.name}
                         </h3>
                         <p className={`font-light text-gray-600 mb-4 transition-all duration-300 ${
-                          plan.name === 'Pro' 
+                          plan.name === 'Basic' 
                             ? 'group-hover:text-white' 
                             : plan.name === 'Premium'
                             ? 'group-hover:text-white'
@@ -376,21 +411,21 @@ export default function PricingPage() {
                         
                         {/* Commission Highlight */}
                         <div className={`mt-4 p-4 bg-gray-100 rounded-lg transition-all duration-300 ${
-                          plan.name === 'Pro' 
+                          plan.name === 'Basic' 
                             ? 'group-hover:bg-blue-600' 
                             : plan.name === 'Premium'
                             ? 'group-hover:bg-purple-600'
                             : 'group-hover:bg-yellow-500'
                         }`}>
                           <div className={`text-sm mb-1 text-gray-600 transition-all duration-300 ${
-                            plan.name === 'Pro' 
+                            plan.name === 'Basic' 
                               ? 'group-hover:text-white' 
                               : plan.name === 'Premium'
                               ? 'group-hover:text-white'
                               : 'group-hover:text-white'
                           }`}>Komisi per ticket</div>
                           <div className={`text-3xl font-bold text-gray-900 transition-all duration-300 ${
-                            plan.name === 'Pro' 
+                            plan.name === 'Basic' 
                               ? 'group-hover:text-white' 
                               : plan.name === 'Premium'
                               ? 'group-hover:text-white'
@@ -402,9 +437,17 @@ export default function PricingPage() {
                       </div>
 
                       {/* Price */}
-                      <div className="text-center mb-8">
+                      <div 
+                        className={`text-center mb-8 relative z-0 ${(plan.name === 'Premium' || plan.name === 'Supervisor') ? '' : ''}`}
+                        style={(plan.name === 'Premium' || plan.name === 'Supervisor') ? {
+                          filter: 'blur(8px)',
+                          WebkitFilter: 'blur(8px)',
+                          userSelect: 'none',
+                          pointerEvents: 'none'
+                        } : {}}
+                      >
                         <div className={`text-4xl font-bold mb-2 text-gray-900 transition-all duration-300 ${
-                          plan.name === 'Pro' 
+                          plan.name === 'Basic' 
                             ? 'group-hover:text-white' 
                             : plan.name === 'Premium'
                             ? 'group-hover:text-white'
@@ -414,7 +457,7 @@ export default function PricingPage() {
                         </div>
                         {plan.price.monthly !== 'Gratis' && (
                           <div className={`text-gray-600 transition-all duration-300 ${
-                            plan.name === 'Pro' 
+                            plan.name === 'Basic' 
                               ? 'group-hover:text-white' 
                               : plan.name === 'Premium'
                               ? 'group-hover:text-white'
@@ -426,7 +469,15 @@ export default function PricingPage() {
                       </div>
 
                       {/* Features */}
-                      <div className="grid grid-cols-2 gap-2 mb-8">
+                      <div 
+                        className={`grid grid-cols-2 gap-2 mb-8 relative z-0 ${(plan.name === 'Premium' || plan.name === 'Supervisor') ? '' : ''}`}
+                        style={(plan.name === 'Premium' || plan.name === 'Supervisor') ? {
+                          filter: 'blur(8px)',
+                          WebkitFilter: 'blur(8px)',
+                          userSelect: 'none',
+                          pointerEvents: 'none'
+                        } : {}}
+                      >
                         {plan.features.map((feature, featureIndex) => (
                           <div key={featureIndex} className="flex items-center">
                             {feature.included ? (
@@ -446,9 +497,17 @@ export default function PricingPage() {
                       </div>
 
                       {/* Limitations */}
-                      <div className="mb-8">
+                      <div 
+                        className={`mb-8 relative z-0 ${(plan.name === 'Premium' || plan.name === 'Supervisor') ? '' : ''}`}
+                        style={(plan.name === 'Premium' || plan.name === 'Supervisor') ? {
+                          filter: 'blur(8px)',
+                          WebkitFilter: 'blur(8px)',
+                          userSelect: 'none',
+                          pointerEvents: 'none'
+                        } : {}}
+                      >
                         <h4 className={`text-sm font-semibold mb-3 text-gray-900 transition-all duration-300 ${
-                          plan.name === 'Pro' 
+                          plan.name === 'Basic' 
                             ? 'group-hover:text-white' 
                             : plan.name === 'Premium'
                             ? 'group-hover:text-white'
@@ -457,7 +516,7 @@ export default function PricingPage() {
                         <ul className="space-y-2">
                           {plan.limitations.map((limitation, limitIndex) => (
                             <li key={limitIndex} className={`text-sm flex items-start text-gray-600 transition-all duration-300 ${
-                              plan.name === 'Pro' 
+                              plan.name === 'Basic' 
                                 ? 'group-hover:text-white' 
                                 : plan.name === 'Premium'
                                 ? 'group-hover:text-white'
@@ -472,20 +531,33 @@ export default function PricingPage() {
 
                       {/* CTA Button */}
                       <div className="mt-auto">
-                        <Button 
-                          className="w-full bg-gray-800 text-white font-medium py-3 rounded-lg hover:bg-gray-900"
-                          size="lg"
-                          onClick={() => handlePlanClick(plan.name)}
-                        >
-                          {!isAuthenticated 
-                            ? (plan.name === 'Pro' ? 'Mulai Gratis' : `Pilih ${plan.name}`)
-                            : user?.role === 'PARTICIPANT'
-                            ? `Upgrade ke ${plan.name}`
-                            : user?.role === 'ORGANIZER'
-                            ? 'Lihat Dashboard'
-                            : (plan.name === 'Pro' ? 'Mulai Gratis' : `Pilih ${plan.name}`)
-                          }
-                        </Button>
+                        {(plan.name === 'Premium' || plan.name === 'Supervisor') ? (
+                          <Button 
+                            className="w-full bg-gray-400 text-white font-medium py-3 rounded-lg cursor-not-allowed"
+                            size="lg"
+                            disabled
+                          >
+                            <div className="flex items-center justify-center gap-2">
+                              <Clock className="w-4 h-4" />
+                              Coming Soon
+                            </div>
+                          </Button>
+                        ) : (
+                          <Button 
+                            className="w-full bg-gray-800 text-white font-medium py-3 rounded-lg hover:bg-gray-900"
+                            size="lg"
+                            onClick={() => handlePlanClick(plan.name)}
+                          >
+                            {!isAuthenticated 
+                              ? (plan.name === 'Basic' ? 'Mulai Gratis' : `Pilih ${plan.name}`)
+                              : user?.role === 'PARTICIPANT'
+                              ? `Upgrade ke ${plan.name}`
+                              : user?.role === 'ORGANIZER'
+                              ? 'Lihat Dashboard'
+                              : (plan.name === 'Basic' ? 'Mulai Gratis' : `Pilih ${plan.name}`)
+                            }
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )
@@ -515,7 +587,7 @@ export default function PricingPage() {
                           Fitur
                         </th>
                         <th className="px-6 py-4 text-center text-sm font-semibold text-gray-600">
-                          Pro
+                          Basic
                         </th>
                         <th className="px-6 py-4 text-center text-sm font-semibold text-blue-600">
                           Premium
@@ -556,23 +628,45 @@ export default function PricingPage() {
                               row.pro
                             )}
                           </td>
-                          <td className="px-6 py-4 text-center text-sm text-gray-600">
-                            {row.premium === 'Check' ? (
-                              <Check className="w-5 h-5 text-green-500 mx-auto" />
-                            ) : row.premium === 'X' ? (
-                              <X className="w-5 h-5 text-red-500 mx-auto" />
-                            ) : (
-                              row.premium
-                            )}
+                          <td 
+                            className="px-6 py-4 text-center text-sm text-gray-600 relative"
+                            style={{
+                              filter: 'blur(8px)',
+                              WebkitFilter: 'blur(8px)',
+                              userSelect: 'none',
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            <div className="absolute inset-0 bg-white/90 backdrop-blur-xl z-10" />
+                            <div className="relative z-0">
+                              {row.premium === 'Check' ? (
+                                <Check className="w-5 h-5 text-green-500 mx-auto" />
+                              ) : row.premium === 'X' ? (
+                                <X className="w-5 h-5 text-red-500 mx-auto" />
+                              ) : (
+                                row.premium
+                              )}
+                            </div>
                           </td>
-                          <td className="px-6 py-4 text-center text-sm text-gray-600">
-                            {row.supervisor === 'Check' ? (
-                              <Check className="w-5 h-5 text-green-500 mx-auto" />
-                            ) : row.supervisor === 'X' ? (
-                              <X className="w-5 h-5 text-red-500 mx-auto" />
-                            ) : (
-                              row.supervisor
-                            )}
+                          <td 
+                            className="px-6 py-4 text-center text-sm text-gray-600 relative"
+                            style={{
+                              filter: 'blur(8px)',
+                              WebkitFilter: 'blur(8px)',
+                              userSelect: 'none',
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            <div className="absolute inset-0 bg-white/90 backdrop-blur-xl z-10" />
+                            <div className="relative z-0">
+                              {row.supervisor === 'Check' ? (
+                                <Check className="w-5 h-5 text-green-500 mx-auto" />
+                              ) : row.supervisor === 'X' ? (
+                                <X className="w-5 h-5 text-red-500 mx-auto" />
+                              ) : (
+                                row.supervisor
+                              )}
+                            </div>
                           </td>
                         </tr>
                         )
@@ -600,11 +694,11 @@ export default function PricingPage() {
                 {[
                   {
                     question: 'Bagaimana cara kerja komisi per ticket?',
-                    answer: 'Komisi dihitung dari setiap ticket yang berhasil terjual melalui platform kami. Pro mengambil 3%, Premium 6%, dan Supervisor 8% dari nilai ticket yang terjual.'
+                    answer: 'Komisi dihitung dari setiap ticket yang berhasil terjual melalui platform kami. Basic mengambil 3%, Premium 6%, dan Supervisor 8% dari nilai ticket yang terjual.'
                   },
                   {
                     question: 'Apakah ada biaya setup atau hidden fees?',
-                    answer: 'Paket Pro dan Premium tidak ada biaya setup. Hanya paket Supervisor yang memiliki setup fee Rp 2.000.000 untuk custom integrations dan white-label solution.'
+                    answer: 'Paket Basic dan Premium tidak ada biaya setup. Hanya paket Supervisor yang memiliki setup fee Rp 2.000.000 untuk custom integrations dan white-label solution.'
                   },
                   {
                     question: 'Bisakah saya upgrade atau downgrade paket?',
@@ -612,11 +706,11 @@ export default function PricingPage() {
                   },
                   {
                     question: 'Apakah ada trial period?',
-                    answer: 'Paket Pro bisa digunakan gratis selamanya. Untuk Premium dan Supervisor, kami menyediakan trial 14 hari tanpa komitmen.'
+                    answer: 'Paket Basic bisa digunakan gratis selamanya. Untuk Premium dan Supervisor, kami menyediakan trial 14 hari tanpa komitmen.'
                   },
                   {
                     question: 'Bagaimana jika saya melebihi limit peserta?',
-                    answer: 'Untuk Pro dan Premium, jika melebihi limit peserta, Anda akan dikenakan biaya tambahan Rp 5.000 per peserta tambahan atau bisa upgrade ke paket yang lebih tinggi.'
+                    answer: 'Untuk Basic dan Premium, jika melebihi limit peserta, Anda akan dikenakan biaya tambahan Rp 5.000 per peserta tambahan atau bisa upgrade ke paket yang lebih tinggi.'
                   }
                 ].map((faq, index) => (
                   <div key={index} className="bg-white rounded-lg border border-gray-200 p-6">

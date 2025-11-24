@@ -101,6 +101,10 @@ export default function GlobalCertificateTemplatesPage() {
   const [showCustomTextModal, setShowCustomTextModal] = useState(false)
   const [customTextInput, setCustomTextInput] = useState('')
 
+  // Canvas dimensions (must match SimpleElementEditor props)
+  const canvasWidth = 800
+  const canvasHeight = 600
+
   const exportRef = useRef<HTMLDivElement>(null)
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -470,58 +474,104 @@ export default function GlobalCertificateTemplatesPage() {
   const exportToPDF = async () => {
     if (!exportRef.current) return
     setIsExporting(true)
-    
+
     try {
       // Wait a bit to ensure UI is ready
       await new Promise(resolve => setTimeout(resolve, 100))
-      
-      // Find the canvas container inside exportRef (without toolbar)
-      const canvasContainer = exportRef.current.querySelector('.element-canvas') as HTMLElement
-      const targetElement = canvasContainer || exportRef.current
-      
-      const canvas = await html2canvas(targetElement, {
+
+      // Store original styles
+      const originalWidth = exportRef.current.style.width
+      const originalHeight = exportRef.current.style.height
+      const originalMaxWidth = exportRef.current.style.maxWidth
+
+      // Set exact dimensions for capture (800x600)
+      exportRef.current.style.width = '800px'
+      exportRef.current.style.height = '600px'
+      exportRef.current.style.maxWidth = '800px'
+
+      // Wait for layout to update
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      // Capture the entire exportRef which includes background image
+      const canvas = await html2canvas(exportRef.current, {
         width: 800,
         height: 600,
+        windowWidth: 800,
+        windowHeight: 600,
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
+        // Ignore UI elements (toolbar, buttons, resize handles)
         ignoreElements: (element) => {
-          // Ignore toolbar, buttons, resize handles, and other UI elements
-          if (element.tagName === 'BUTTON') return true
-          if (element.classList.contains('resize-handle')) return true
-          if (element.classList.contains('simple-element-editor')) return true
-          if (element.closest('.simple-element-editor') && element.tagName !== 'DIV') return true
-          // Ignore selection borders and handles during export
-          if (element.classList.contains('ring-2') || element.classList.contains('ring-blue-500')) {
-            // Only ignore if it's a selection indicator, not the actual element
-            return false
+          // Ignore toolbar (first child of simple-element-editor)
+          if (element.classList.contains('simple-element-editor')) {
+            const firstChild = element.querySelector(':scope > div:first-child')
+            if (firstChild && firstChild.contains(element)) return true
           }
+
+          // Ignore buttons (delete buttons, etc.)
+          if (element.tagName === 'BUTTON') return true
+
+          // Ignore resize handles
+          if (element.classList.contains('cursor-nw-resize')) return true
+          if (element.classList.contains('cursor-ne-resize')) return true
+          if (element.classList.contains('cursor-sw-resize')) return true
+          if (element.classList.contains('cursor-se-resize')) return true
+          if (element.classList.contains('cursor-n-resize')) return true
+          if (element.classList.contains('cursor-s-resize')) return true
+          if (element.classList.contains('cursor-e-resize')) return true
+          if (element.classList.contains('cursor-w-resize')) return true
+
           return false
         },
         onclone: (clonedDoc) => {
-          // Hide all UI elements in cloned document
+          // Additional cleanup in cloned document
           const clonedWindow = clonedDoc.defaultView
           if (clonedWindow) {
+            // Hide toolbar
             const toolbar = clonedDoc.querySelector('.simple-element-editor > div:first-child')
             if (toolbar) {
               (toolbar as HTMLElement).style.display = 'none'
             }
+
+            // Hide all buttons
+            const buttons = clonedDoc.querySelectorAll('button')
+            buttons.forEach(btn => {
+              (btn as HTMLElement).style.display = 'none'
+            })
+
             // Hide resize handles
-            const resizeHandles = clonedDoc.querySelectorAll('.resize-handle')
-            resizeHandles.forEach(handle => {
+            const handles = clonedDoc.querySelectorAll('[class*="cursor-"][class*="-resize"]')
+            handles.forEach(handle => {
               (handle as HTMLElement).style.display = 'none'
             })
-            // Hide selection borders
-            const selectedElements = clonedDoc.querySelectorAll('.ring-2')
-            selectedElements.forEach(el => {
-              const element = el as HTMLElement
+
+            // Remove selection rings
+            const rings = clonedDoc.querySelectorAll('.ring-2, .ring-blue-500, .ring-1')
+            rings.forEach(ring => {
+              const element = ring as HTMLElement
+              element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1', 'ring-1', 'ring-blue-300', 'ring-dashed')
               element.style.outline = 'none'
               element.style.boxShadow = 'none'
+            })
+
+            // Hide "No selection" text and placeholder
+            const placeholders = clonedDoc.querySelectorAll('.text-gray-500')
+            placeholders.forEach(placeholder => {
+              const text = (placeholder as HTMLElement).textContent
+              if (text?.includes('No selection') || text?.includes('Upload background')) {
+                (placeholder as HTMLElement).style.display = 'none'
+              }
             })
           }
         }
       })
+
+      // Restore original styles
+      exportRef.current.style.width = originalWidth
+      exportRef.current.style.height = originalHeight
+      exportRef.current.style.maxWidth = originalMaxWidth
 
       const imgData = canvas.toDataURL('image/png', 1.0)
       const pdf = new jsPDF({
@@ -534,7 +584,7 @@ export default function GlobalCertificateTemplatesPage() {
       pdf.save(`${templateName || 'global-template'}.pdf`)
     } catch (error) {
       console.error('Error exporting to PDF:', error)
-      alert('Error exporting to PDF. Please try again.')
+      alert(`Error exporting to PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsExporting(false)
     }
@@ -1416,7 +1466,55 @@ export default function GlobalCertificateTemplatesPage() {
       {/* Templates List */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {templates.map((template) => (
-          <Card key={template.id} className="hover:shadow-lg transition-shadow">
+          <Card key={template.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+            {/* Template Preview Thumbnail */}
+            {template.backgroundImage ? (
+              <div className="relative h-48 bg-gray-100 overflow-hidden">
+                <img
+                  src={template.backgroundImage}
+                  alt={`${template.name} preview`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2 right-2">
+                  {template.isDefault ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500 text-white shadow-md">
+                      Default
+                    </span>
+                  ) : template.isActive ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500 text-white shadow-md">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500 text-white shadow-md">
+                      Inactive
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="relative h-48 bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                <div className="text-center">
+                  <FileText className="mx-auto h-12 w-12 text-blue-400 mb-2" />
+                  <p className="text-sm text-blue-600 font-medium">No Preview</p>
+                </div>
+                <div className="absolute top-2 right-2">
+                  {template.isDefault ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500 text-white shadow-md">
+                      Default
+                    </span>
+                  ) : template.isActive ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500 text-white shadow-md">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500 text-white shadow-md">
+                      Inactive
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -1429,21 +1527,6 @@ export default function GlobalCertificateTemplatesPage() {
                       Created: {formatDate(template.createdAt)}
                     </p>
                   </div>
-                </div>
-                <div className="ml-4">
-                  {template.isDefault ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      Default
-                    </span>
-                  ) : template.isActive ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Active
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      Inactive
-                    </span>
-                  )}
                 </div>
               </div>
             </CardHeader>

@@ -153,16 +153,16 @@ router.get('/:organizerId/dashboard', authenticate, requireOrganizer, async (req
       totalEvents,
       publishedEvents,
       totalRegistrations,
-      totalRevenue,
+      paidPayments,
       recentEvents,
     ] = await Promise.all([
       prisma.event.count({
         where: { createdBy: organizerId },
       }),
       prisma.event.count({
-        where: { 
+        where: {
           createdBy: organizerId,
-          status: 'PUBLISHED',
+          isPublished: true,
         },
       }),
       prisma.eventRegistration.count({
@@ -170,12 +170,24 @@ router.get('/:organizerId/dashboard', authenticate, requireOrganizer, async (req
           event: {
             createdBy: organizerId,
           },
+          status: 'ACTIVE', // Only count ACTIVE registrations
         },
       }),
-      prisma.organizerRevenue.aggregate({
-        where: { organizerId },
-        _sum: {
-          organizerAmount: true,
+      // Calculate total revenue from all PAID payments for organizer's events
+      prisma.payment.findMany({
+        where: {
+          event: {
+            createdBy: organizerId,
+          },
+          paymentStatus: 'PAID',
+        },
+        select: {
+          amount: true,
+          event: {
+            select: {
+              platformFee: true,
+            },
+          },
         },
       }),
       prisma.event.findMany({
@@ -192,6 +204,19 @@ router.get('/:organizerId/dashboard', authenticate, requireOrganizer, async (req
       }),
     ]);
 
+    // Calculate total revenue, platform fee, and organizer revenue from payments
+    let totalRevenueAmount = 0;
+    let totalPlatformFeeAmount = 0;
+    let organizerRevenueAmount = 0;
+    
+    paidPayments.forEach(payment => {
+      const amount = parseFloat(payment.amount.toString());
+      totalRevenueAmount += amount;
+      const platformFee = (amount * (parseFloat(payment.event.platformFee?.toString() || '0'))) / 100;
+      totalPlatformFeeAmount += platformFee;
+      organizerRevenueAmount += amount - platformFee;
+    });
+
     res.status(200).json({
       success: true,
       data: {
@@ -199,7 +224,9 @@ router.get('/:organizerId/dashboard', authenticate, requireOrganizer, async (req
           totalEvents,
           publishedEvents,
           totalRegistrations,
-          totalRevenue: totalRevenue._sum.organizerAmount || 0,
+          totalRevenue: totalRevenueAmount, // Total revenue from all PAID payments (gross)
+          platformFee: totalPlatformFeeAmount, // Total platform fee deducted
+          organizerRevenue: organizerRevenueAmount, // Organizer's share after platform fee (net - masuk ke wallet)
         },
         recentEvents,
       },
@@ -450,7 +477,7 @@ router.post('/:organizerId/reject', authenticate, async (req, res) => {
         action: 'ORGANIZER_REJECTED',
         targetType: 'ORGANIZER',
         targetId: organizerId,
-        details: { 
+        details: {
           organizerName: result.organizer?.fullName,
           reason: reason
         }
@@ -499,11 +526,11 @@ router.post('/:organizerId/verify', authenticate, requireAdmin, async (req, res)
     // Get organizer before verification for audit trail
     const organizerBefore = await prisma.user.findUnique({
       where: { id: organizerId },
-      select: { 
-        id: true, 
-        fullName: true, 
-        email: true, 
-        verificationStatus: true 
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        verificationStatus: true
       }
     });
 

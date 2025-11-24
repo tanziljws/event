@@ -7,9 +7,32 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/auth-context'
 import { LoadingSpinner } from '@/components/ui/loading'
 import SearchModal from '@/components/search-modal'
+import NotificationBell from '@/components/NotificationBell'
+
+// Helper function to get effective role (check temporaryRole from metadata)
+const getEffectiveRole = (user: any) => {
+  if (!user) return null
+  
+  const metadata = user.metadata && typeof user.metadata === 'object' && user.metadata !== null ? user.metadata : null
+  const temporaryRole = metadata?.temporaryRole
+  
+  // If in temporary mode, use temporary role
+  if (temporaryRole === 'PARTICIPANT') {
+    return 'PARTICIPANT'
+  } else if (temporaryRole === 'ORGANIZER') {
+    return 'ORGANIZER'
+  }
+  
+  // Otherwise use original role
+  return user.role
+}
 
 // Helper functions for role-based navigation
-const getDashboardUrl = (role: string, verificationStatus?: string) => {
+const getDashboardUrl = (user: any) => {
+  const effectiveRole = getEffectiveRole(user)
+  const role = effectiveRole || user?.role || 'PARTICIPANT'
+  const verificationStatus = user?.verificationStatus
+  
   switch (role) {
     case 'SUPER_ADMIN':
       return '/admin/dashboard'
@@ -39,8 +62,25 @@ const isDepartmentAgent = (role: string) => {
   return ['CS_AGENT', 'OPS_AGENT', 'FINANCE_AGENT'].includes(role)
 }
 
-// Helper function to get display role based on verification status
-const getDisplayRole = (role: string, verificationStatus?: string) => {
+// Helper function to get display role based on verification status and temporary mode
+const getDisplayRole = (user: any) => {
+  if (!user) return 'Peserta'
+  
+  const effectiveRole = getEffectiveRole(user)
+  const role = effectiveRole || user.role
+  const verificationStatus = user.verificationStatus
+  
+  // If in participant mode, always show "Peserta"
+  if (effectiveRole === 'PARTICIPANT') {
+    return 'Peserta'
+  }
+  
+  // If in organizer mode (temporary), show "Organizer"
+  if (effectiveRole === 'ORGANIZER' && user.metadata?.temporaryRole === 'ORGANIZER') {
+    return 'Organizer'
+  }
+  
+  // Original role logic
   if (role === 'ORGANIZER') {
     if (verificationStatus === 'APPROVED') {
       return 'Organizer'
@@ -52,7 +92,7 @@ const getDisplayRole = (role: string, verificationStatus?: string) => {
       return 'Peserta'
     }
   }
-  return role
+  return 'Peserta'
 }
 
 const getDepartmentName = (department: string) => {
@@ -72,7 +112,12 @@ export default function Navbar() {
   const { user, isAuthenticated, isInitialized, logout } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [showUserDropdown, setShowUserDropdown] = useState(false)
   const router = useRouter()
+
+  // Get effective role and mode
+  const effectiveRole = user ? getEffectiveRole(user) : null
+  const isInParticipantMode = effectiveRole === 'PARTICIPANT'
 
   const handleLogout = async () => {
     await logout()
@@ -167,79 +212,28 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Top Banner - Blue Bar */}
-      <div className="bg-blue-600 text-white py-2.5 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between text-sm">
-            {/* Left Side - Info Links */}
-            <div className="flex items-center space-x-6">
-              <Link
-                href="/contact"
-                className="flex items-center space-x-2 hover:text-blue-100 transition-colors duration-200"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <span className="hidden md:inline font-medium">Bantuan Event Sekarang</span>
-              </Link>
-              <Link
-                href="/pricing"
-                className="hover:text-blue-100 transition-colors duration-200 font-medium hidden sm:inline"
-              >
-                Tentang Kami
-              </Link>
-              <Link
-                href="/cs-info"
-                className="hover:text-blue-100 transition-colors duration-200 font-medium hidden sm:inline"
-              >
-                Cek Tiket Gratis
-              </Link>
-            </div>
-
-            {/* Right Side - Additional Links */}
-            <div className="flex items-center space-x-6">
-              <Link
-                href="/contact"
-                className="hover:text-blue-100 transition-colors duration-200 font-medium hidden md:inline"
-              >
-                Customer Service
-              </Link>
-              <div className="h-4 w-px bg-blue-400 hidden md:block"></div>
-              <Link
-                href="/app"
-                className="hover:text-blue-100 transition-colors duration-200 font-medium"
-              >
-                Download App
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Navbar */}
-      <header className="bg-white border-b border-blue-100 sticky top-10 z-40 backdrop-blur-sm">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-5">
             {/* Logo */}
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-3 group">
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center group-hover:opacity-80 transition-all duration-300 shadow-lg group-hover:shadow-xl overflow-visible bg-transparent">
-                  <img
-                    src="/logo-nusa.png"
-                    alt="Nusa Logo"
-                    className="h-full w-auto max-w-full object-contain"
-                    style={{ maxHeight: '56px' }}
-                    onError={(e) => {
-                      // Fallback jika logo tidak ada
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      if (target.parentElement) {
-                        target.parentElement.innerHTML = '<span class="text-blue-600 font-bold text-lg">N</span>';
-                      }
-                    }}
-                  />
-                </div>
-                <span className="text-2xl font-light text-gray-900 group-hover:text-blue-600 transition-all duration-300">
+                <img
+                  src="/logo-nusa.png"
+                  alt="Nusa Logo"
+                  className="h-20 w-auto max-w-full object-contain group-hover:opacity-80 transition-all duration-300"
+                  style={{ maxHeight: '80px' }}
+                  onError={(e) => {
+                    // Fallback jika logo tidak ada
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    if (target.parentElement) {
+                      target.parentElement.innerHTML = '<span class="text-blue-600 font-bold text-lg">N</span>';
+                    }
+                  }}
+                />
+                <span className="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-all duration-300">
                   Nusa
                 </span>
               </Link>
@@ -292,42 +286,22 @@ export default function Navbar() {
               {isAuthenticated && user ? (
                 <>
                   <Link
-                    href={getDashboardUrl(user.role, user.verificationStatus)}
+                    href={getDashboardUrl(user)}
                     className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
                   >
                     Dashboard
                     <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
                   </Link>
 
-                  {/* Super Admin Navigation */}
-                  {user.role === 'SUPER_ADMIN' && (
+                  {/* Super Admin Navigation - Only if not in participant mode */}
+                  {!isInParticipantMode && user.role === 'SUPER_ADMIN' && (
                     <>
-                      <Link
-                        href="/admin/organizers"
-                        className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
-                      >
-                        Organizers
-                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-                      </Link>
-                      <Link
-                        href="/admin/departments"
-                        className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
-                      >
-                        Departments
-                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-                      </Link>
-                      <Link
-                        href="/admin/analytics"
-                        className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
-                      >
-                        Analytics
-                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-                      </Link>
+                      {/* Organizers, Departments, and Analytics hidden */}
                     </>
                   )}
 
-                  {/* Department Head Navigation */}
-                  {isDepartmentHead(user.role) && (
+                  {/* Department Head Navigation - Only if not in participant mode */}
+                  {!isInParticipantMode && isDepartmentHead(user.role) && (
                     <>
                       <Link
                         href={`/department/${user.department?.toLowerCase()}/dashboard`}
@@ -353,8 +327,8 @@ export default function Navbar() {
                     </>
                   )}
 
-                  {/* Department Agent Navigation */}
-                  {isDepartmentAgent(user.role) && (
+                  {/* Department Agent Navigation - Only if not in participant mode */}
+                  {!isInParticipantMode && isDepartmentAgent(user.role) && (
                     <>
                       <Link
                         href={`/department/${user.department?.toLowerCase()}/tickets`}
@@ -373,37 +347,17 @@ export default function Navbar() {
                     </>
                   )}
 
-                  {/* Organizer Navigation - Only for approved organizers */}
-                  {user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED' && (
+                  {/* Organizer Navigation - Only for approved organizers and not in participant mode */}
+                  {!isInParticipantMode && user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED' && (
                     <>
-                      <Link
-                        href="/organizer/events"
-                        className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
-                      >
-                        My Events
-                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-                      </Link>
-                      <Link
-                        href="/organizer/events/create"
-                        className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
-                      >
-                        Create Event
-                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-                      </Link>
-                      <Link
-                        href="/organizer/attendance"
-                        className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
-                      >
-                        Attendance
-                        <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-300 group-hover:w-full"></span>
-                      </Link>
+                      {/* My Events, Create Event, and Attendance hidden */}
                     </>
                   )}
 
-                  {/* Participant Navigation - For PARTICIPANT role or ORGANIZER with PENDING status */}
-                  {(user.role === 'PARTICIPANT' || (user.role === 'ORGANIZER' && user.verificationStatus !== 'APPROVED')) && (
+                  {/* Participant Navigation - Show when in participant mode OR original role is PARTICIPANT */}
+                  {(isInParticipantMode || user.role === 'PARTICIPANT' || (user.role === 'ORGANIZER' && user.verificationStatus !== 'APPROVED')) && (
                     <>
-                      {user.role === 'ORGANIZER' && user.verificationStatus === 'PENDING' && (
+                      {!isInParticipantMode && user.role === 'ORGANIZER' && user.verificationStatus === 'PENDING' && (
                         <Link
                           href="/pricing"
                           className="px-4 py-2 text-gray-600 hover:text-blue-600 font-semibold rounded-xl transition-all duration-300 relative group"
@@ -414,39 +368,61 @@ export default function Navbar() {
                       )}
                     </>
                   )}
-                  <div className="flex items-center space-x-4 ml-4 pl-4 border-l border-gray-200">
-                    <div className="flex items-center space-x-3">
+                  {/* Notification Bell */}
+                  <NotificationBell />
+                  <div className="relative ml-4 pl-4 border-l border-gray-200">
+                    <button
+                      onClick={() => setShowUserDropdown(!showUserDropdown)}
+                      className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-300"
+                    >
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 font-semibold text-sm">
                           {user.fullName?.charAt(0)?.toUpperCase()}
                         </span>
                       </div>
-                      <div className="text-sm">
+                      <div className="text-sm text-left">
                         <div className="text-gray-900 font-semibold">{user.fullName}</div>
                         <div className="text-gray-500 text-xs">
-                          {getDisplayRole(user.role, user.verificationStatus)}
+                          {getDisplayRole(user)}
                         </div>
                       </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Link href="/profile">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 font-semibold rounded-xl transition-all duration-300"
+                      <svg className={`w-4 h-4 text-gray-500 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showUserDropdown && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                        <Link
+                          href="/profile"
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
+                          onClick={() => setShowUserDropdown(false)}
                         >
-                          Profil
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleLogout}
-                        className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-semibold rounded-xl transition-all duration-300"
-                      >
-                        Logout
-                      </Button>
-                    </div>
+                          <div className="flex items-center space-x-3">
+                            <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            </svg>
+                            <span className="font-medium">Profile</span>
+                          </div>
+                        </Link>
+                        <div className="border-t border-gray-100 my-1"></div>
+                        <button
+                          onClick={() => {
+                            setShowUserDropdown(false)
+                            handleLogout()
+                          }}
+                          className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
+                            </svg>
+                            <span className="font-medium">Logout</span>
+                          </div>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
@@ -547,13 +523,13 @@ export default function Navbar() {
                 {isAuthenticated && user ? (
                   <>
                     <Link
-                      href={getDashboardUrl(user.role, user.verificationStatus)}
+                      href={getDashboardUrl(user)}
                       className="block px-4 py-3 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all duration-300"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       Dashboard
                     </Link>
-                    {user.role === 'SUPER_ADMIN' && (
+                    {!isInParticipantMode && user.role === 'SUPER_ADMIN' && (
                       <>
                         <Link
                           href="/admin/organizers"
@@ -578,34 +554,14 @@ export default function Navbar() {
                         </Link>
                       </>
                     )}
-                    {user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED' && (
+                    {!isInParticipantMode && user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED' && (
                       <>
-                        <Link
-                          href="/organizer/events"
-                          className="block px-4 py-3 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all duration-300"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          My Events
-                        </Link>
-                        <Link
-                          href="/organizer/events/create"
-                          className="block px-4 py-3 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all duration-300"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          Create Event
-                        </Link>
-                        <Link
-                          href="/organizer/attendance"
-                          className="block px-4 py-3 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all duration-300"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          Attendance
-                        </Link>
+                        {/* My Events, Create Event, and Attendance hidden */}
                       </>
                     )}
-                    {(user.role === 'PARTICIPANT' || (user.role === 'ORGANIZER' && user.verificationStatus !== 'APPROVED')) && (
+                    {(isInParticipantMode || user.role === 'PARTICIPANT' || (user.role === 'ORGANIZER' && user.verificationStatus !== 'APPROVED')) && (
                       <>
-                        {user.role === 'ORGANIZER' && user.verificationStatus === 'PENDING' && (
+                        {!isInParticipantMode && user.role === 'ORGANIZER' && user.verificationStatus === 'PENDING' && (
                           <Link
                             href="/pricing"
                             className="block px-4 py-3 text-gray-700 hover:text-blue-600 rounded-xl font-semibold transition-all duration-300"
@@ -626,7 +582,7 @@ export default function Navbar() {
                         <div>
                           <div className="text-sm font-semibold text-gray-900">{user.fullName}</div>
                           <div className="text-xs text-gray-500">
-                            {getDisplayRole(user.role, user.verificationStatus)}
+                            {getDisplayRole(user)}
                           </div>
                         </div>
                       </div>

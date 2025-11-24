@@ -35,6 +35,13 @@ export interface Event {
   eventDate: string;
   eventTime: string;
   location: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
   thumbnailUrl?: string;
   galleryUrls?: string[];
   flyerUrl?: string;

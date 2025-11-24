@@ -4,9 +4,20 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { ApiService } from '@/lib/api'
 import { useAuth } from '@/contexts/auth-context'
+import { useToast } from '@/components/ui/toast'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { 
   CheckCircle,
   XCircle,
@@ -40,10 +51,16 @@ interface Organizer {
 export default function AdminOrganizersPage() {
   const router = useRouter()
   const { user, isAuthenticated, isInitialized } = useAuth()
+  const { toast } = useToast()
   const [organizers, setOrganizers] = useState<Organizer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  
+  // Reject dialog state
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [organizerToReject, setOrganizerToReject] = useState<Organizer | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     // Check authorization
@@ -68,70 +85,43 @@ export default function AdminOrganizersPage() {
   const fetchOrganizers = async () => {
     try {
       setLoading(true)
-      // For now, we'll use mock data since we don't have organizers API yet
-      setOrganizers([
-        {
-          id: '1',
-          fullName: 'John Doe Organizer',
-          email: 'organizer@test.com',
-          phoneNumber: '+6281234567890',
-          organizerType: 'INDIVIDUAL',
-          verificationStatus: 'APPROVED',
-          businessName: 'John Events',
-          businessAddress: 'Jakarta, Indonesia',
-          businessPhone: '+6281234567890',
-          portfolio: 'https://portfolio.example.com',
-          socialMedia: '@johnevents',
-          createdAt: '2025-01-01T00:00:00.000Z',
-          verifiedAt: '2025-01-02T00:00:00.000Z'
-        },
-        {
-          id: '2',
-          fullName: 'DevMeet Jakarta',
-          email: 'devmeet@example.com',
-          phoneNumber: '+6281234567891',
-          organizerType: 'COMMUNITY',
-          verificationStatus: 'PENDING',
-          businessName: 'DevMeet Jakarta Community',
-          businessAddress: 'Jakarta, Indonesia',
-          businessPhone: '+6281234567891',
-          portfolio: 'https://devmeet-jakarta.com',
-          socialMedia: '@devmeetjakarta',
-          createdAt: '2025-01-03T00:00:00.000Z'
-        },
-        {
-          id: '3',
-          fullName: 'Coffee Corner',
-          email: 'coffee@example.com',
-          phoneNumber: '+6281234567892',
-          organizerType: 'SMALL_BUSINESS',
-          verificationStatus: 'APPROVED',
-          businessName: 'Coffee Corner Cafe',
-          businessAddress: 'Bandung, Indonesia',
-          businessPhone: '+6281234567892',
-          portfolio: 'https://coffeecorner.com',
-          socialMedia: '@coffeecorner',
-          createdAt: '2025-01-04T00:00:00.000Z',
-          verifiedAt: '2025-01-05T00:00:00.000Z'
-        },
-        {
-          id: '4',
-          fullName: 'Universitas Indonesia',
-          email: 'ui@example.com',
-          phoneNumber: '+6281234567893',
-          organizerType: 'INSTITUTION',
-          verificationStatus: 'PENDING',
-          businessName: 'Universitas Indonesia',
-          businessAddress: 'Depok, Indonesia',
-          businessPhone: '+6281234567893',
-          portfolio: 'https://ui.ac.id',
-          socialMedia: '@universitasindonesia',
-          createdAt: '2025-01-05T00:00:00.000Z'
-        }
-      ])
-    } catch (err) {
+      setError(null)
+      
+      const response = await ApiService.getAdminOrganizers()
+      
+      if (response.success && response.data?.organizers) {
+        // Map API response to Organizer interface
+        const mappedOrganizers = response.data.organizers.map((org: any) => ({
+          id: org.id,
+          fullName: org.fullName,
+          email: org.email,
+          phoneNumber: org.phoneNumber || '',
+          organizerType: org.organizerType || '',
+          verificationStatus: org.verificationStatus || 'PENDING',
+          businessName: org.businessName || '',
+          businessAddress: org.businessAddress || '',
+          businessPhone: org.businessPhone || '',
+          portfolio: org.portfolio || '',
+          socialMedia: org.socialMedia || '',
+          createdAt: org.createdAt,
+          verifiedAt: org.verifiedAt,
+          rejectedReason: org.rejectedReason
+        }))
+        
+        setOrganizers(mappedOrganizers)
+      } else {
+        setError('Failed to fetch organizers')
+        setOrganizers([])
+      }
+    } catch (err: any) {
       setError('Failed to fetch organizers')
       console.error('Fetch organizers error:', err)
+      toast({
+        type: 'error',
+        title: 'Error',
+        message: err.message || 'Failed to fetch organizers'
+      })
+      setOrganizers([])
     } finally {
       setLoading(false)
     }
@@ -140,41 +130,107 @@ export default function AdminOrganizersPage() {
   const handleApprove = async (organizerId: string) => {
     try {
       setActionLoading(organizerId)
-      // TODO: Call API to approve organizer
-      console.log('Approving organizer:', organizerId)
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      setError(null)
       
-      // Update local state
-      setOrganizers(prev => prev.map(org => 
-        org.id === organizerId 
-          ? { ...org, verificationStatus: 'APPROVED', verifiedAt: new Date().toISOString() }
-          : org
-      ))
-    } catch (err) {
-      setError('Failed to approve organizer')
+      const response = await ApiService.approveOrganizer(organizerId)
+      
+      if (response.success) {
+        // Update local state
+        setOrganizers(prev => prev.map(org => 
+          org.id === organizerId 
+            ? { 
+                ...org, 
+                verificationStatus: 'APPROVED', 
+                verifiedAt: new Date().toISOString(),
+                rejectedReason: undefined
+              }
+            : org
+        ))
+        
+        toast({
+          type: 'success',
+          title: 'Success',
+          message: 'Organizer approved successfully'
+        })
+        
+        // Refresh data to get latest from server
+        await fetchOrganizers()
+      } else {
+        throw new Error(response.message || 'Failed to approve organizer')
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to approve organizer'
+      setError(errorMessage)
+      toast({
+        type: 'error',
+        title: 'Error',
+        message: errorMessage
+      })
       console.error('Approve organizer error:', err)
     } finally {
       setActionLoading(null)
     }
   }
 
-  const handleReject = async (organizerId: string) => {
+  const openRejectDialog = (organizer: Organizer) => {
+    setOrganizerToReject(organizer)
+    setRejectReason('')
+    setRejectDialogOpen(true)
+  }
+
+  const handleReject = async () => {
+    if (!organizerToReject || !rejectReason.trim()) {
+      toast({
+        type: 'error',
+        title: 'Validation Error',
+        message: 'Rejection reason is required'
+      })
+      return
+    }
+
     try {
-      setActionLoading(organizerId)
-      // TODO: Call API to reject organizer
-      console.log('Rejecting organizer:', organizerId)
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      setActionLoading(organizerToReject.id)
+      setError(null)
       
-      // Update local state
-      setOrganizers(prev => prev.map(org => 
-        org.id === organizerId 
-          ? { ...org, verificationStatus: 'REJECTED', rejectedReason: 'Incomplete documentation' }
-          : org
-      ))
-    } catch (err) {
-      setError('Failed to reject organizer')
+      const response = await ApiService.rejectOrganizer(organizerToReject.id, rejectReason.trim())
+      
+      if (response.success) {
+        // Update local state
+        setOrganizers(prev => prev.map(org => 
+          org.id === organizerToReject.id 
+            ? { 
+                ...org, 
+                verificationStatus: 'REJECTED', 
+                rejectedReason: rejectReason.trim(),
+                verifiedAt: undefined
+              }
+            : org
+        ))
+        
+        toast({
+          type: 'success',
+          title: 'Success',
+          message: 'Organizer rejected successfully'
+        })
+        
+        // Close dialog and reset
+        setRejectDialogOpen(false)
+        setOrganizerToReject(null)
+        setRejectReason('')
+        
+        // Refresh data to get latest from server
+        await fetchOrganizers()
+      } else {
+        throw new Error(response.message || 'Failed to reject organizer')
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to reject organizer'
+      setError(errorMessage)
+      toast({
+        type: 'error',
+        title: 'Error',
+        message: errorMessage
+      })
       console.error('Reject organizer error:', err)
     } finally {
       setActionLoading(null)
@@ -394,16 +450,12 @@ export default function AdminOrganizersPage() {
                           Approve
                         </Button>
                         <Button
-                          onClick={() => handleReject(organizer.id)}
+                          onClick={() => openRejectDialog(organizer)}
                           disabled={actionLoading === organizer.id}
                           variant="outline"
                           className="border-red-300 text-red-600 hover:bg-red-50"
                         >
-                          {actionLoading === organizer.id ? (
-                            <LoadingSpinner size="sm" className="mr-2" />
-                          ) : (
-                            <XCircle className="w-4 h-4 mr-2" />
-                          )}
+                          <XCircle className="w-4 h-4 mr-2" />
                           Reject
                         </Button>
                       </>
@@ -422,6 +474,70 @@ export default function AdminOrganizersPage() {
           ))}
         </div>
       )}
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Organizer</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this organizer application.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {organizerToReject && (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-900">{organizerToReject.fullName}</p>
+                <p className="text-sm text-gray-600">{organizerToReject.email}</p>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="reject-reason">Rejection Reason *</Label>
+              <textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+                className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This reason will be sent to the organizer via email.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectDialogOpen(false)
+                setOrganizerToReject(null)
+                setRejectReason('')
+              }}
+              disabled={actionLoading === organizerToReject?.id}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReject}
+              disabled={!rejectReason.trim() || actionLoading === organizerToReject?.id}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {actionLoading === organizerToReject?.id ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Reject Organizer
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

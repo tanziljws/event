@@ -14,7 +14,8 @@ import {
   Activity,
   LogOut,
   Menu,
-  X
+  X,
+  Wallet
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -49,6 +50,11 @@ const navigationItems = [
     name: 'Attendance',
     href: '/organizer/attendance',
     icon: Users,
+  },
+  {
+    name: 'Wallet',
+    href: '/organizer/wallet',
+    icon: Wallet,
   },
 ]
 

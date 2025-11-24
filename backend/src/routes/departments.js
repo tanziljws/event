@@ -1,9 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { authenticate, requireHierarchicalAccess, requireDepartment, requireSuperAdmin } = require('../middlewares/auth');
-const { prisma } = require('../config/database');
+const { getPrisma } = require('../config/database');
 const logger = require('../config/logger');
 const emailService = require('../services/emailService');
+
+// Get prisma instance
+const prisma = getPrisma();
 
 const router = express.Router();
 
@@ -187,32 +190,13 @@ router.get('/test', authenticate, (req, res) => {
 // Get department structure
 router.get('/structure', authenticate, requireHierarchicalAccess, async (req, res) => {
   try {
-    // Get all departments from departments table
-    const allDepartments = await prisma.organizationDepartment.findMany({
-      where: {
-        isActive: true
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        headId: true,
-        isActive: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-    
-    console.log('🔍 All departments from DB:', allDepartments.map(d => d.name));
-
     // Get all users with department roles
     const users = await prisma.user.findMany({
       where: {
         role: {
-          in: ['SUPER_ADMIN', 'CS_HEAD', 'CS_AGENT', 
-               'OPS_HEAD', 'OPS_AGENT',
-               'FINANCE_HEAD', 'FINANCE_AGENT']
+          in: ['SUPER_ADMIN', 'CS_HEAD', 'CS_SENIOR_AGENT', 'CS_AGENT', 
+               'OPS_HEAD', 'OPS_SENIOR_AGENT', 'OPS_AGENT',
+               'FINANCE_HEAD', 'FINANCE_SENIOR_AGENT', 'FINANCE_AGENT']
         }
       },
       select: {
@@ -233,24 +217,27 @@ router.get('/structure', authenticate, requireHierarchicalAccess, async (req, re
       ]
     });
 
-    // Create dynamic structure based on departments in database
-    const structure = {};
-    
-    allDepartments.forEach(dept => {
-      const deptName = dept.name.toUpperCase().replace(/\s+/g, '_');
-      structure[deptName] = {
+    // Initialize structure based on Department enum
+    const structure = {
+      'CUSTOMER_SERVICE': {
         head: null,
         agents: []
-      };
-    });
-    
-    console.log('🔍 Structure keys:', Object.keys(structure));
+      },
+      'OPERATIONS': {
+        head: null,
+        agents: []
+      },
+      'FINANCE': {
+        head: null,
+        agents: []
+      }
+    };
 
-    // Create mapping from Prisma enum to structure keys
+    // Map Department enum to structure keys
     const departmentMapping = {
-      'FINANCE': 'FIANNACE_A',  // Map FINANCE enum to FIANNACE_A structure key
-      'CUSTOMER_SERVICE': 'CUSTOMER_SERVICE',
-      'OPERATIONS': 'OPERATIONS'
+      'CUSTOMER_SUCCESS': 'CUSTOMER_SERVICE',
+      'OPERATIONS': 'OPERATIONS',
+      'FINANCE': 'FINANCE'
     };
 
     // Organize users by department
@@ -260,19 +247,8 @@ router.get('/structure', authenticate, requireHierarchicalAccess, async (req, re
         if (structure[structureKey]) {
           if (user.role.includes('_HEAD')) {
             structure[structureKey].head = user;
-          } else if (user.role.includes('_AGENT')) {
+          } else if (user.role.includes('_AGENT') || user.role.includes('SENIOR_AGENT')) {
             structure[structureKey].agents.push(user);
-          }
-        }
-      }
-      
-      // Special handling for HR users (they have CUSTOMER_SERVICE department but should appear in HUMAN_RESOURCES)
-      if (user.department === 'CUSTOMER_SERVICE' && user.employeeId && user.employeeId.startsWith('HR')) {
-        if (structure['HUMAN_RESOURCES']) {
-          if (user.role.includes('_HEAD')) {
-            structure['HUMAN_RESOURCES'].head = user;
-          } else if (user.role.includes('_AGENT')) {
-            structure['HUMAN_RESOURCES'].agents.push(user);
           }
         }
       }
@@ -285,10 +261,12 @@ router.get('/structure', authenticate, requireHierarchicalAccess, async (req, re
 
   } catch (error) {
     logger.error('Get department structure error:', error);
+    logger.error('Error details:', error.message, error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch department structure',
-      error: 'INTERNAL_SERVER_ERROR'
+      error: error.message || 'INTERNAL_SERVER_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -1162,36 +1140,69 @@ router.post('/', authenticate, requireSuperAdmin, async (req, res) => {
 // Get all departments
 router.get('/', authenticate, requireSuperAdmin, async (req, res) => {
   try {
-    const departments = await prisma.organizationDepartment.findMany({
+    // Get all users with department roles to build department structure
+    const users = await prisma.user.findMany({
       where: {
-        isActive: true
-      },
-      include: {
-        head: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true
-          }
+        role: {
+          in: ['SUPER_ADMIN', 'CS_HEAD', 'CS_SENIOR_AGENT', 'CS_AGENT', 
+               'OPS_HEAD', 'OPS_SENIOR_AGENT', 'OPS_AGENT',
+               'FINANCE_HEAD', 'FINANCE_SENIOR_AGENT', 'FINANCE_AGENT']
+        },
+        department: {
+          in: ['CUSTOMER_SUCCESS', 'OPERATIONS', 'FINANCE']
         }
       },
-      orderBy: {
-        createdAt: 'desc'
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        department: true,
+        createdAt: true
       }
     });
 
-    // Format response to match expected structure
-    const formattedDepartments = departments.map(dept => ({
-      id: dept.id,
-      name: dept.name,
-      description: dept.description,
-      head_id: dept.headId,
-      head_name: dept.head?.fullName || null,
-      head_email: dept.head?.email || null,
-      is_active: dept.isActive,
-      created_at: dept.createdAt,
-      updated_at: dept.updatedAt
-    }));
+    // Build departments from users
+    const departmentMap = {
+      'CUSTOMER_SUCCESS': {
+        name: 'Customer Service',
+        description: 'Customer support and satisfaction management',
+        users: []
+      },
+      'OPERATIONS': {
+        name: 'Operations',
+        description: 'Event operations and logistics management',
+        users: []
+      },
+      'FINANCE': {
+        name: 'Finance',
+        description: 'Financial management and payment processing',
+        users: []
+      }
+    };
+
+    // Organize users by department
+    users.forEach(user => {
+      if (user.department && departmentMap[user.department]) {
+        departmentMap[user.department].users.push(user);
+      }
+    });
+
+    // Format response
+    const formattedDepartments = Object.entries(departmentMap).map(([key, dept]) => {
+      const head = dept.users.find(u => u.role.includes('_HEAD'));
+      return {
+        id: key,
+        name: dept.name,
+        description: dept.description,
+        head_id: head?.id || null,
+        head_name: head?.fullName || null,
+        head_email: head?.email || null,
+        is_active: true,
+        created_at: head?.createdAt || new Date(),
+        updated_at: new Date()
+      };
+    });
 
     res.json({
       success: true,
@@ -1199,10 +1210,12 @@ router.get('/', authenticate, requireSuperAdmin, async (req, res) => {
     });
   } catch (error) {
     logger.error('Get departments error:', error);
+    logger.error('Error details:', error.message, error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch departments',
-      error: error.message
+      error: error.message || 'INTERNAL_SERVER_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

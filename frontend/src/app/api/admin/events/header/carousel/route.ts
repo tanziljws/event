@@ -1,63 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+// Use singleton pattern to ensure fresh Prisma client
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined
+}
 
-// GET - Fetch all active carousel items
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
+
+// GET - Fetch all active headers for carousel (public endpoint)
 export async function GET() {
   try {
-    const carouselItems = await prisma.eventsHeader.findMany({
+    const headers = await prisma.eventsHeader.findMany({
       where: {
         isActive: true
       },
-      orderBy: {
-        sortOrder: 'asc'
-      }
+      orderBy: [
+        { sortOrder: 'asc' },
+        { createdAt: 'desc' }
+      ]
     })
 
-    return NextResponse.json(carouselItems)
-  } catch (error) {
-    console.error('Error fetching carousel items:', error)
-    return NextResponse.json(
-      { message: 'Failed to fetch carousel items' },
-      { status: 500 }
-    )
-  }
-}
-
-// POST - Create new carousel item
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { videoUrl, title, subtitle, description, ctaText, ctaLink, logoUrl, sortOrder } = body
-
-    // Validate required fields
-    if (!videoUrl || !title || !subtitle || !description || !ctaText || !ctaLink) {
-      return NextResponse.json(
-        { message: 'All required fields must be provided' },
-        { status: 400 }
-      )
+    if (headers.length === 0) {
+      // Return default content if none exists
+      return NextResponse.json([{
+        id: 'default',
+        bannerUrl: '/banner/default-banner.png',
+        title: 'Featured Event',
+        subtitle: 'Discover Amazing Events',
+        description: 'Join us for exciting events and unforgettable experiences.',
+        ctaText: 'Explore Events',
+        ctaLink: '#',
+        isActive: true,
+        sortOrder: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }])
     }
 
-    const carouselItem = await prisma.eventsHeader.create({
-      data: {
-        videoUrl,
-        title,
-        subtitle,
-        description,
-        ctaText,
-        ctaLink,
-        logoUrl: logoUrl || null,
-        sortOrder: sortOrder || 0,
-        isActive: true
-      }
-    })
-
-    return NextResponse.json(carouselItem)
-  } catch (error) {
-    console.error('Error creating carousel item:', error)
+    return NextResponse.json(headers)
+  } catch (error: any) {
+    console.error('Error fetching carousel headers:', error)
     return NextResponse.json(
-      { message: 'Failed to create carousel item' },
+      { message: 'Failed to fetch carousel headers', error: error.message || 'Unknown error' },
       { status: 500 }
     )
   }

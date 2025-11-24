@@ -190,7 +190,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; object-src 'none';",
+            value: "frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://app.sandbox.midtrans.com https://app.midtrans.com; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://app.sandbox.midtrans.com https://app.midtrans.com; object-src 'none';",
           },
           {
             key: 'Cross-Origin-Embedder-Policy',

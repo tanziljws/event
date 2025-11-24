@@ -36,14 +36,19 @@ model User {
   rejectedReason             String?                     @map("rejected_reason")
   assignedTo                 String?                     @map("assigned_to")
   assignedAt                 DateTime?                   @map("assigned_at")
+  isSuspended                Boolean                     @default(false) @map("is_suspended")
+  metadata                   Json?
   activityLogs               ActivityLog[]
   agentHistory               AssignmentHistory[]         @relation("AgentHistory")
   userHistory                AssignmentHistory[]         @relation("UserHistory")
   auditLogs                  AuditLog[]                  @relation("AuditPerformer")
+  balanceTransactions        BalanceTransaction[]
   businessProfile            BusinessProfile?
   communityProfile           CommunityProfile?
   assignedTickets            DepartmentTicket[]          @relation("TicketAssignee")
   departmentTickets          DepartmentTicket[]          @relation("DepartmentTickets")
+  departments                departments[]
+  disbursements              Disbursement[]
   eventRegistrations         EventRegistration[]
   approvedEvents             Event[]                     @relation("EventApprover")
   createdEvents              Event[]                     @relation("EventCreator")
@@ -52,8 +57,10 @@ model User {
   individualProfile          IndividualProfile?
   institutionProfile         InstitutionProfile?
   notifications              Notification[]
+  organizerBalance           OrganizerBalance?
   organizerRevenue           OrganizerRevenue[]
   payments                   Payment[]
+  payoutAccounts             PayoutAccount[]
   pump_command_logs          pump_command_logs[]
   pump_execution_history     pump_execution_history[]
   pump_schedules             pump_schedules[]
@@ -69,12 +76,12 @@ model User {
 model IndividualProfile {
   id              String   @id @default(uuid())
   userId          String   @unique @map("user_id")
-  nik             String   // Required: NIK/KTP
-  personalAddress String   @map("personal_address") // Required
-  personalPhone   String   @map("personal_phone") // Required
-  documents       String[] @default([]) // PDF documents array
+  nik             String
+  personalAddress String   @map("personal_address")
+  personalPhone   String   @map("personal_phone")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
+  documents       String[]
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("individual_profiles")
@@ -83,13 +90,13 @@ model IndividualProfile {
 model CommunityProfile {
   id               String   @id @default(uuid())
   userId           String   @unique @map("user_id")
-  communityName    String   @map("community_name") // Required
-  communityAddress String   @map("community_address") // Required
-  communityPhone   String   @map("community_phone") // Required
-  contactPerson    String   @map("contact_person") // Required
-  documents        String[] @default([]) // PDF documents array
+  communityName    String   @map("community_name")
+  communityAddress String   @map("community_address")
+  communityPhone   String   @map("community_phone")
+  contactPerson    String   @map("contact_person")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
+  documents        String[]
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("community_profiles")
@@ -98,13 +105,13 @@ model CommunityProfile {
 model BusinessProfile {
   id              String   @id @default(uuid())
   userId          String   @unique @map("user_id")
-  businessName    String   @map("business_name") // Required
-  businessAddress String   @map("business_address") // Required
-  businessPhone   String   @map("business_phone") // Required
-  npwp            String?  // Optional for UMKM
-  documents       String[] @default([]) // PDF documents array
+  businessName    String   @map("business_name")
+  businessAddress String   @map("business_address")
+  businessPhone   String   @map("business_phone")
+  npwp            String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
+  documents       String[]
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("business_profiles")
@@ -113,13 +120,13 @@ model BusinessProfile {
 model InstitutionProfile {
   id                 String   @id @default(uuid())
   userId             String   @unique @map("user_id")
-  institutionName    String   @map("institution_name") // Required
-  institutionAddress String   @map("institution_address") // Required
-  institutionPhone   String   @map("institution_phone") // Required
-  contactPerson      String   @map("contact_person") // Required
-  documents          String[] @default([]) // PDF documents array
+  institutionName    String   @map("institution_name")
+  institutionAddress String   @map("institution_address")
+  institutionPhone   String   @map("institution_phone")
+  contactPerson      String   @map("contact_person")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
+  documents          String[]
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("institution_profiles")
@@ -129,9 +136,7 @@ model Event {
   id                     String               @id @default(uuid())
   title                  String
   eventDate              DateTime             @map("event_date")
-  eventEndDate           DateTime?            @map("event_end_date")
   eventTime              String               @map("event_time")
-  eventEndTime           String?              @map("event_end_time")
   location               String
   latitude               Decimal?             @db.Decimal(10, 8)
   longitude              Decimal?             @db.Decimal(11, 8)
@@ -166,6 +171,10 @@ model Event {
   isPrivate              Boolean              @default(false) @map("is_private")
   privatePassword        String?              @map("private_password")
   hasMultipleTicketTypes Boolean              @default(false) @map("has_multiple_ticket_types")
+  eventEndDate           DateTime?            @map("event_end_date")
+  eventEndTime           String?              @map("event_end_time")
+  isHomepageFeatured     Boolean?             @default(false) @map("is_homepage_featured")
+  homepageOrder          Int?                 @map("homepage_order")
   certificateTemplate    CertificateTemplate?
   cancellations          EventCancellation[]
   registrations          EventRegistration[]
@@ -240,7 +249,6 @@ model EventRegistration {
   @@index([eventId, registeredAt])
   @@index([participantId])
   @@index([ticketTypeId])
-  @@unique([eventId, participantId])
   @@map("event_registrations")
 }
 
@@ -433,7 +441,6 @@ model Refund {
 
 model EventsHeader {
   id          String   @id @default(uuid())
-  videoUrl    String   @map("video_url")
   title       String
   subtitle    String
   description String
@@ -444,6 +451,7 @@ model EventsHeader {
   sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  bannerUrl   String   @map("banner_url")
 
   @@map("events_headers")
 }
@@ -485,6 +493,89 @@ model OrganizerRevenue {
   @@index([eventId])
   @@index([settlementStatus])
   @@map("organizer_revenue")
+}
+
+model OrganizerBalance {
+  id                   String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  organizerId          String               @unique @map("organizer_id")
+  balance              Decimal              @default(0) @db.Decimal(12, 2)
+  pendingBalance       Decimal              @default(0) @map("pending_balance") @db.Decimal(12, 2)
+  totalEarned          Decimal              @default(0) @map("total_earned") @db.Decimal(12, 2)
+  totalWithdrawn       Decimal              @default(0) @map("total_withdrawn") @db.Decimal(12, 2)
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  balance_transactions BalanceTransaction[]
+  organizer            User                 @relation(fields: [organizerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([organizerId], map: "idx_organizer_balance_organizer_id")
+  @@map("organizer_balance")
+}
+
+model BalanceTransaction {
+  id                   String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  organizerId          String            @map("organizer_id")
+  type                 TransactionType
+  amount               Decimal           @db.Decimal(12, 2)
+  balanceBefore        Decimal           @map("balance_before") @db.Decimal(12, 2)
+  balanceAfter         Decimal           @map("balance_after") @db.Decimal(12, 2)
+  referenceType        String?           @map("reference_type")
+  referenceId          String?           @map("reference_id")
+  description          String
+  metadata             Json?
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  organizer_balance_id String?
+  organizer_balance    OrganizerBalance? @relation(fields: [organizer_balance_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizer            User              @relation(fields: [organizerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([createdAt], map: "idx_balance_transactions_created_at")
+  @@index([organizerId], map: "idx_balance_transactions_organizer_id")
+  @@index([type], map: "idx_balance_transactions_type")
+  @@map("balance_transactions")
+}
+
+model PayoutAccount {
+  id            String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  organizerId   String         @map("organizer_id")
+  accountType   AccountType    @map("account_type")
+  accountName   String         @map("account_name")
+  accountNumber String         @map("account_number")
+  bankCode      String?        @map("bank_code")
+  eWalletType   String?        @map("e_wallet_type")
+  isVerified    Boolean        @default(false) @map("is_verified")
+  isDefault     Boolean        @default(false) @map("is_default")
+  verifiedAt    DateTime?      @map("verified_at") @db.Timestamp(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  disbursements Disbursement[]
+  organizer     User           @relation(fields: [organizerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([isDefault], map: "idx_payout_accounts_is_default")
+  @@index([organizerId], map: "idx_payout_accounts_organizer_id")
+  @@map("payout_accounts")
+}
+
+model Disbursement {
+  id              String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  organizerId     String             @map("organizer_id")
+  payoutAccountId String             @map("payout_account_id")
+  amount          Decimal            @db.Decimal(12, 2)
+  status          DisbursementStatus @default(PENDING)
+  xenditId        String?            @map("xendit_id")
+  xenditReference String?            @map("xendit_reference")
+  failureReason   String?            @map("failure_reason")
+  requestedAt     DateTime           @default(now()) @map("requested_at") @db.Timestamp(6)
+  processedAt     DateTime?          @map("processed_at") @db.Timestamp(6)
+  completedAt     DateTime?          @map("completed_at") @db.Timestamp(6)
+  metadata        Json?
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  organizer       User               @relation(fields: [organizerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payoutAccount   PayoutAccount      @relation(fields: [payoutAccountId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([organizerId], map: "idx_disbursements_organizer_id")
+  @@index([status], map: "idx_disbursements_status")
+  @@index([xenditId], map: "idx_disbursements_xendit_id")
+  @@map("disbursements")
 }
 
 model DepartmentTicket {
@@ -724,16 +815,53 @@ model pump_schedules {
   @@index([user_id], map: "idx_pump_schedules_user_id")
 }
 
+model departments {
+  id          String   @id
+  name        String   @unique
+  description String?
+  head_id     String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime
+  users       User?    @relation(fields: [head_id], references: [id])
+
+  @@index([head_id])
+  @@index([is_active])
+}
+
+model homepage_demo_video {
+  id            String   @id
+  video_type    String   @default("youtube")
+  video_url     String?
+  video_file    String?
+  title         String?
+  description   String?
+  thumbnail_url String?
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime
+}
+
+model homepage_hero {
+  id                 String   @id
+  featured_event_ids String[]
+  title              String?
+  subtitle           String?
+  description        String?
+  background_color   String?
+  text_color         String?
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now())
+  updated_at         DateTime
+}
+
 enum UserRole {
   SUPER_ADMIN
   CS_HEAD
-  CS_SENIOR_AGENT
   CS_AGENT
   OPS_HEAD
-  OPS_SENIOR_AGENT
   OPS_AGENT
   FINANCE_HEAD
-  FINANCE_SENIOR_AGENT
   FINANCE_AGENT
   ORGANIZER
   PARTICIPANT
@@ -768,11 +896,12 @@ enum AuditEntityType {
 }
 
 enum Department {
-  CUSTOMER_SUCCESS
+  CUSTOMER_SERVICE
   OPERATIONS
   FINANCE
   ORGANIZER
   PARTICIPANT
+  CUSTOMER_SUCCESS
 
   @@map("department")
 }
@@ -780,7 +909,6 @@ enum Department {
 enum UserPosition {
   SUPER_ADMIN
   HEAD
-  SENIOR_AGENT
   AGENT
   ORGANIZER
   PARTICIPANT
@@ -887,6 +1015,31 @@ enum SettlementStatus {
   @@map("settlement_status")
 }
 
+enum TransactionType {
+  CREDIT
+  DEBIT
+  ADJUSTMENT
+
+  @@map("transaction_type")
+}
+
+enum AccountType {
+  BANK_ACCOUNT
+  E_WALLET
+
+  @@map("account_type")
+}
+
+enum DisbursementStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("disbursement_status")
+}
+
 enum TicketPriority {
   LOW
   MEDIUM
@@ -967,4 +1120,13 @@ enum NotificationType {
   GENERAL
 
   @@map("notification_type")
+}
+
+model Settings {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
 }

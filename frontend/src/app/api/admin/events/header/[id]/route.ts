@@ -37,7 +37,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json()
-    const { videoUrl, title, subtitle, description, ctaText, ctaLink, logoUrl, sortOrder, isActive } = body
+    const { bannerUrl, title, subtitle, description, ctaText, ctaLink, logoUrl, sortOrder, isActive } = body
 
     // Check if item exists
     const existingItem = await prisma.eventsHeader.findUnique({
@@ -55,7 +55,7 @@ export async function PATCH(
     const updatedItem = await prisma.eventsHeader.update({
       where: { id: params.id },
       data: {
-        ...(videoUrl && { videoUrl }),
+        ...(bannerUrl && { bannerUrl }),
         ...(title && { title }),
         ...(subtitle && { subtitle }),
         ...(description && { description }),

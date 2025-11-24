@@ -6,28 +6,22 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { SkeletonDashboard } from '@/components/ui/skeleton'
 import { SessionIndicator } from '@/components/auth/session-status'
+import { StatCard } from '@/components/ui/stat-card'
+import { BarChart, PieChart } from '@/components/charts'
+import { colorScheme } from '@/lib/chart-config'
 import { ApiService } from '@/lib/api'
-import { 
-  Calendar, 
-  Users, 
-  Ticket, 
+import {
+  Calendar,
+  Users,
+  Ticket,
   TrendingUp,
-  Eye,
-  Download,
-  Filter,
   RefreshCw,
   Bell,
   BarChart3,
-  PieChart,
-  TrendingDown,
-  Clock,
-  MapPin,
-  Zap,
-  ArrowRight,
-  Settings,
-  Activity
+  PieChart as PieChartIcon,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts'
 
 interface DashboardStats {
   stats: {
@@ -55,7 +49,7 @@ interface DashboardStats {
   }
 }
 
-// Fallback mock data (will be replaced by real API data)
+// Fallback mock data
 const registrationTrends = [
   { month: 'Jan', registrations: 0, events: 0 },
   { month: 'Feb', registrations: 0, events: 0 },
@@ -66,9 +60,9 @@ const registrationTrends = [
 ]
 
 const eventCategories = [
-  { name: 'TECHNOLOGY', value: 0, color: 'bg-blue-500' },
-  { name: 'BUSINESS', value: 0, color: 'bg-green-500' },
-  { name: 'EDUCATION', value: 0, color: 'bg-purple-500' }
+  { name: 'TECHNOLOGY', value: 0 },
+  { name: 'BUSINESS', value: 0 },
+  { name: 'EDUCATION', value: 0 }
 ]
 
 const revenueData = [
@@ -94,16 +88,11 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [timeRange, setTimeRange] = useState('current-month') // current-month, last-month, last-year, custom
-  const [chartType, setChartType] = useState('bar') // bar, pie
-  const [revenueChartType, setRevenueChartType] = useState('bar') // bar, pie
-  const [demographicsChartType, setDemographicsChartType] = useState('bar') // bar, pie
-  const [categoriesChartType, setCategoriesChartType] = useState('bar') // bar, pie
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'success', message: 'New event created successfully', time: '2 min ago' },
-    { id: 2, type: 'warning', message: 'Event "Tech Conference" has low registrations', time: '1 hour ago' },
-    { id: 3, type: 'info', message: 'Monthly report is ready for download', time: '3 hours ago' }
-  ])
+  const [timeRange, setTimeRange] = useState('current-month')
+  const [chartType, setChartType] = useState('bar')
+  const [revenueChartType, setRevenueChartType] = useState('bar')
+  const [demographicsChartType, setDemographicsChartType] = useState('bar')
+  const [categoriesChartType, setCategoriesChartType] = useState('bar')
 
   useEffect(() => {
     fetchDashboardData()
@@ -112,11 +101,10 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
-      
-      // Calculate year based on timeRange
+
       let yearToFetch = selectedYear
       const now = new Date()
-      
+
       switch (timeRange) {
         case 'current-month':
           yearToFetch = now.getFullYear()
@@ -132,12 +120,12 @@ export default function AdminDashboard() {
           yearToFetch = selectedYear
           break
       }
-      
+
       const [statsResponse, analyticsResponse] = await Promise.all([
         ApiService.getAdminDashboard(),
         ApiService.getMonthlyAnalytics(yearToFetch, timeRange)
       ])
-      
+
       if (statsResponse.success) {
         setStats(statsResponse.data)
       } else {
@@ -165,17 +153,101 @@ export default function AdminDashboard() {
     }).format(amount)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+  const exportToCSV = () => {
+    if (!stats || !analytics) {
+      alert('No data to export')
+      return
+    }
+
+    // Prepare CSV data
+    const csvRows: string[] = []
+
+    // Header
+    csvRows.push('Nusa Event Platform - Dashboard Export')
+    csvRows.push(`Generated: ${new Date().toLocaleString('id-ID')}`)
+    csvRows.push('')
+
+    // Statistics Section
+    csvRows.push('=== STATISTICS ===')
+    csvRows.push('Metric,Value')
+    csvRows.push(`Total Events,${stats.stats.totalEvents}`)
+    csvRows.push(`Published Events,${stats.stats.publishedEvents}`)
+    csvRows.push(`Total Participants,${stats.stats.totalParticipants}`)
+    csvRows.push(`Total Registrations,${stats.stats.totalRegistrations}`)
+    csvRows.push(`Total Revenue,${formatCurrency(stats.stats.totalRevenue)}`)
+    csvRows.push(`Events This Month,${stats.stats.eventsThisMonth}`)
+    csvRows.push(`Events This Year,${stats.stats.eventsThisYear}`)
+    csvRows.push(`Upcoming Events,${stats.stats.upcomingEvents}`)
+    csvRows.push(`Recent Registrations,${stats.stats.recentRegistrations}`)
+    csvRows.push('')
+
+    // Registration Trends
+    if (analytics.registrationTrends && analytics.registrationTrends.length > 0) {
+      csvRows.push('=== REGISTRATION TRENDS ===')
+      csvRows.push('Month,Registrations,Events')
+      analytics.registrationTrends.forEach((item: any) => {
+        csvRows.push(`${item.month},${item.registrations},${item.events}`)
+      })
+      csvRows.push('')
+    }
+
+    // Event Categories
+    if (analytics.eventCategories && analytics.eventCategories.length > 0) {
+      csvRows.push('=== EVENT CATEGORIES ===')
+      csvRows.push('Category,Count')
+      analytics.eventCategories.forEach((cat: any) => {
+        csvRows.push(`${cat.name},${cat.value}`)
+      })
+      csvRows.push('')
+    }
+
+    // Revenue Data
+    if (analytics.revenueData && analytics.revenueData.length > 0) {
+      csvRows.push('=== REVENUE DATA ===')
+      csvRows.push('Month,Revenue (IDR)')
+      analytics.revenueData.forEach((item: any) => {
+        csvRows.push(`${item.month},${item.revenue}`)
+      })
+      csvRows.push('')
+    }
+
+    // Participant Demographics
+    if (analytics.participantDemographics && analytics.participantDemographics.length > 0) {
+      csvRows.push('=== PARTICIPANT DEMOGRAPHICS ===')
+      csvRows.push('Age Group,Count,Percentage')
+      analytics.participantDemographics.forEach((demo: any) => {
+        csvRows.push(`${demo.age},${demo.count},${demo.percentage}%`)
+      })
+      csvRows.push('')
+    }
+
+    // Top Events
+    if (stats.stats.topEvents && stats.stats.topEvents.length > 0) {
+      csvRows.push('=== TOP EVENTS ===')
+      csvRows.push('Title,Event Date,Participants,Published,Creator')
+      stats.stats.topEvents.forEach((event: any) => {
+        csvRows.push(`"${event.title}",${event.eventDate},${event.participantCount},${event.isPublished ? 'Yes' : 'No'},"${event.creator.fullName}"`)
+      })
+    }
+
+    // Create CSV content
+    const csvContent = csvRows.join('\n')
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `dashboard-export-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100">
+      <div className="min-h-screen bg-gray-50">
         <div className="space-y-8 p-6">
           <SkeletonDashboard />
         </div>
@@ -192,77 +264,239 @@ export default function AdminDashboard() {
     )
   }
 
+  // Prepare chart data
+  const registrationChartData = {
+    labels: (analytics?.registrationTrends || registrationTrends)
+      .filter((item: any) => item.registrations > 0 || item.events > 0)
+      .map((item: any) => item.month),
+    datasets: [
+      {
+        label: 'Registrations',
+        data: (analytics?.registrationTrends || registrationTrends)
+          .filter((item: any) => item.registrations > 0 || item.events > 0)
+          .map((item: any) => item.registrations),
+        backgroundColor: colorScheme.blue.bg,
+        borderColor: colorScheme.blue.border,
+        borderWidth: 1,
+      },
+      {
+        label: 'Events',
+        data: (analytics?.registrationTrends || registrationTrends)
+          .filter((item: any) => item.registrations > 0 || item.events > 0)
+          .map((item: any) => item.events),
+        backgroundColor: colorScheme.green.bg,
+        borderColor: colorScheme.green.border,
+        borderWidth: 1,
+      },
+    ],
+  }
+
+  const registrationPieData = {
+    labels: (analytics?.registrationTrends || registrationTrends)
+      .filter((item: any) => item.registrations > 0)
+      .map((item: any) => item.month),
+    datasets: [
+      {
+        data: (analytics?.registrationTrends || registrationTrends)
+          .filter((item: any) => item.registrations > 0)
+          .map((item: any) => item.registrations),
+        backgroundColor: [
+          colorScheme.blue.bg,
+          colorScheme.green.bg,
+          colorScheme.purple.bg,
+          colorScheme.orange.bg,
+          colorScheme.red.bg,
+          colorScheme.indigo.bg,
+        ],
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+    ],
+  }
+
+  const categoriesChartData = {
+    labels: (analytics?.eventCategories || eventCategories)
+      .filter((cat: any) => cat.value > 0)
+      .map((cat: any) => cat.name),
+    datasets: [
+      {
+        label: 'Events',
+        data: (analytics?.eventCategories || eventCategories)
+          .filter((cat: any) => cat.value > 0)
+          .map((cat: any) => cat.value),
+        backgroundColor: colorScheme.green.bg,
+        borderColor: colorScheme.green.border,
+        borderWidth: 1,
+      },
+    ],
+  }
+
+  const categoriesPieData = {
+    labels: (analytics?.eventCategories || eventCategories)
+      .filter((cat: any) => cat.value > 0)
+      .map((cat: any) => cat.name),
+    datasets: [
+      {
+        data: (analytics?.eventCategories || eventCategories)
+          .filter((cat: any) => cat.value > 0)
+          .map((cat: any) => cat.value),
+        backgroundColor: [
+          colorScheme.green.bg,
+          colorScheme.emerald.bg,
+          colorScheme.blue.bg,
+        ],
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+    ],
+  }
+
+  const revenueChartData = {
+    labels: (analytics?.revenueData || revenueData)
+      .filter((item: any) => item.revenue > 0)
+      .map((item: any) => item.month),
+    datasets: [
+      {
+        label: 'Revenue',
+        data: (analytics?.revenueData || revenueData)
+          .filter((item: any) => item.revenue > 0)
+          .map((item: any) => item.revenue),
+        backgroundColor: colorScheme.orange.bg,
+        borderColor: colorScheme.orange.border,
+        borderWidth: 1,
+      },
+    ],
+  }
+
+  const revenuePieData = {
+    labels: (analytics?.revenueData || revenueData)
+      .filter((item: any) => item.revenue > 0)
+      .map((item: any) => item.month),
+    datasets: [
+      {
+        data: (analytics?.revenueData || revenueData)
+          .filter((item: any) => item.revenue > 0)
+          .map((item: any) => item.revenue),
+        backgroundColor: [
+          colorScheme.orange.bg,
+          colorScheme.red.bg,
+          'rgba(251, 146, 60, 0.8)',
+          'rgba(220, 38, 38, 0.8)',
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(234, 88, 12, 0.8)',
+        ],
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+    ],
+  }
+
+  const demographicsChartData = {
+    labels: (analytics?.participantDemographics || participantDemographics)
+      .filter((demo: any) => demo.count > 0)
+      .map((demo: any) => demo.age),
+    datasets: [
+      {
+        label: 'Participants',
+        data: (analytics?.participantDemographics || participantDemographics)
+          .filter((demo: any) => demo.count > 0)
+          .map((demo: any) => demo.count),
+        backgroundColor: colorScheme.purple.bg,
+        borderColor: colorScheme.purple.border,
+        borderWidth: 1,
+      },
+    ],
+  }
+
+  const demographicsPieData = {
+    labels: (analytics?.participantDemographics || participantDemographics)
+      .filter((demo: any) => demo.count > 0)
+      .map((demo: any) => demo.age),
+    datasets: [
+      {
+        data: (analytics?.participantDemographics || participantDemographics)
+          .filter((demo: any) => demo.count > 0)
+          .map((demo: any) => demo.count),
+        backgroundColor: [
+          colorScheme.purple.bg,
+          'rgba(168, 85, 247, 0.8)',
+          'rgba(147, 51, 234, 0.8)',
+          'rgba(126, 34, 206, 0.8)',
+        ],
+        borderWidth: 2,
+        borderColor: '#fff',
+      },
+    ],
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100">
-      <div className="space-y-8 p-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold text-gray-900">
               Admin Dashboard
             </h1>
-            <p className="text-gray-600 text-lg">Overview of your event management system</p>
+            <p className="text-gray-600">Overview of your event management system</p>
           </div>
-           <div className="flex items-center space-x-4">
-             {/* Time Range Picker */}
-             <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3 shadow-lg shadow-blue-500/10">
-               <select 
-                 value={timeRange} 
-                 onChange={(e) => setTimeRange(e.target.value)}
-                 className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:outline-none"
-               >
-                 <option value="current-month">Bulan Ini</option>
-                 <option value="last-month">Bulan Lalu</option>
-                 <option value="last-year">Tahun Lalu</option>
-                 <option value="custom">Custom Tahun</option>
-               </select>
-             </div>
-             
-             {/* Custom Year Picker - Only show when custom is selected */}
-             {timeRange === 'custom' && (
-               <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3 shadow-lg shadow-blue-500/10">
-                 <select 
-                   value={selectedYear} 
-                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                   className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:outline-none"
-                 >
-                   <option value={2025}>2025</option>
-                   <option value={2024}>2024</option>
-                   <option value={2023}>2023</option>
-                   <option value={2022}>2022</option>
-                   <option value={2021}>2021</option>
-                 </select>
-               </div>
-             )}
-            
+          <div className="flex items-center space-x-3">
+            {/* Time Range Picker */}
+            <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:outline-none"
+              >
+                <option value="current-month">Bulan Ini</option>
+                <option value="last-month">Bulan Lalu</option>
+                <option value="last-year">Tahun Lalu</option>
+                <option value="custom">Custom Tahun</option>
+              </select>
+            </div>
+
+            {/* Custom Year Picker */}
+            {timeRange === 'custom' && (
+              <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="bg-transparent border-0 text-sm font-medium text-gray-700 focus:outline-none"
+                >
+                  <option value={2025}>2025</option>
+                  <option value={2024}>2024</option>
+                  <option value={2023}>2023</option>
+                  <option value={2022}>2022</option>
+                  <option value={2021}>2021</option>
+                </select>
+              </div>
+            )}
+
             {/* Auto Refresh Toggle */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3 shadow-lg shadow-green-500/10">
+            <div className="bg-white rounded-lg p-2 shadow-sm border border-gray-200">
               <button
                 onClick={() => setAutoRefresh(!autoRefresh)}
-                className={`flex items-center space-x-2 text-sm font-medium transition-colors ${
-                  autoRefresh ? 'text-green-700' : 'text-gray-500'
-                }`}
+                className={`flex items-center space-x-2 text-sm font-medium transition-colors ${autoRefresh ? 'text-green-700' : 'text-gray-500'
+                  }`}
               >
                 <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
                 <span>Auto Refresh</span>
               </button>
             </div>
 
-            {/* Notification Center */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3 shadow-lg shadow-purple-500/10 relative">
-              <button className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                <Bell className="h-4 w-4" />
-                <span>Notifications</span>
-                {notifications.length > 0 && (
-                  <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {notifications.length}
-                  </span>
-                )}
-              </button>
-            </div>
+            {/* Export Button */}
+            <Button
+              onClick={exportToCSV}
+              variant="outline"
+              className="bg-white hover:bg-gray-50 border border-gray-200 shadow-sm"
+              disabled={!stats || !analytics}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
 
             {/* Session Indicator */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg shadow-blue-500/10">
+            <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
               <SessionIndicator />
             </div>
           </div>
@@ -270,83 +504,44 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 hover:-translate-y-1 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-700">Total Events</CardTitle>
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                <Calendar className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {stats?.stats?.totalEvents || 0}
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                {stats?.stats?.publishedEvents || 0} published
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-green-500/10 hover:shadow-xl hover:shadow-green-500/20 transition-all duration-300 hover:-translate-y-1 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-700">Total Participants</CardTitle>
-              <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
-                <Users className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                {stats?.stats?.totalParticipants || 0}
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                {stats?.stats?.recentRegistrations || 0} recent
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-purple-500/10 hover:shadow-xl hover:shadow-purple-500/20 transition-all duration-300 hover:-translate-y-1 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-700">Registrations</CardTitle>
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl shadow-lg">
-                <Ticket className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
-                {stats?.stats?.totalRegistrations || 0}
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                {stats?.stats?.eventsThisMonth || 0} this month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-orange-500/10 hover:shadow-xl hover:shadow-orange-500/20 transition-all duration-300 hover:-translate-y-1 rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-gray-700">Revenue</CardTitle>
-              <div className="p-3 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl shadow-lg">
-                <TrendingUp className="h-5 w-5 text-white" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                {formatCurrency(stats?.stats?.totalRevenue || 0)}
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                {stats?.stats?.eventsThisYear || 0} events this year
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Total Events"
+            value={stats?.stats?.totalEvents || 0}
+            subtitle={`${stats?.stats?.publishedEvents || 0} published`}
+            icon={Calendar}
+            iconBg="bg-blue-500"
+          />
+          <StatCard
+            title="Total Participants"
+            value={stats?.stats?.totalParticipants || 0}
+            subtitle={`${stats?.stats?.recentRegistrations || 0} recent`}
+            icon={Users}
+            iconBg="bg-green-500"
+          />
+          <StatCard
+            title="Registrations"
+            value={stats?.stats?.totalRegistrations || 0}
+            subtitle={`${stats?.stats?.eventsThisMonth || 0} this month`}
+            icon={Ticket}
+            iconBg="bg-purple-500"
+          />
+          <StatCard
+            title="Revenue"
+            value={formatCurrency(stats?.stats?.totalRevenue || 0)}
+            subtitle={`${stats?.stats?.eventsThisYear || 0} events this year`}
+            icon={TrendingUp}
+            iconBg="bg-orange-500"
+          />
         </div>
 
-        {/* Simple Data Overview */}
+        {/* Charts Grid */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Registration Trends - Simple Table */}
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 transition-all duration-300 rounded-2xl">
+          {/* Registration Trends */}
+          <Card className="bg-white shadow-sm border border-gray-200">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-bold text-gray-800">Registration Trends</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Registration Trends</CardTitle>
                   <CardDescription className="text-gray-600">
                     {timeRange === 'current-month' && 'Data registrasi bulan ini'}
                     {timeRange === 'last-month' && 'Data registrasi bulan lalu'}
@@ -357,109 +552,32 @@ export default function AdminDashboard() {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setChartType('bar')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      chartType === 'bar' 
-                        ? 'bg-blue-100 text-blue-600' 
+                    className={`p-2 rounded-lg transition-colors ${chartType === 'bar'
+                        ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
                     <BarChart3 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setChartType('pie')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      chartType === 'pie' 
-                        ? 'bg-blue-100 text-blue-600' 
+                    className={`p-2 rounded-lg transition-colors ${chartType === 'pie'
+                        ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
-                    <PieChart className="h-4 w-4" />
+                    <PieChartIcon className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {chartType === 'bar' ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={(analytics?.registrationTrends || registrationTrends).filter((item: any) => item.registrations > 0 || item.events > 0)}>
-                      <defs>
-                        <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" />
-                          <stop offset="100%" stopColor="#1d4ed8" />
-                        </linearGradient>
-                        <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10b981" />
-                          <stop offset="100%" stopColor="#059669" />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis 
-                        dataKey="month" 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                      />
-                      <YAxis 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                      />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                      />
-                      <Bar dataKey="registrations" fill="url(#blueGradient)" radius={[8, 8, 0, 0]} />
-                      <Bar dataKey="events" fill="url(#greenGradient)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <BarChart data={registrationChartData} />
               ) : (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <defs>
-                        <linearGradient id="pieBlueGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" />
-                          <stop offset="100%" stopColor="#1d4ed8" />
-                        </linearGradient>
-                        <linearGradient id="pieGreenGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#10b981" />
-                          <stop offset="100%" stopColor="#059669" />
-                        </linearGradient>
-                      </defs>
-                      <Pie
-                        data={(analytics?.registrationTrends || registrationTrends).filter((item: any) => item.registrations > 0 || item.events > 0)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ month, registrations }: any) => `${month}: ${registrations}`}
-                        outerRadius={90}
-                        innerRadius={30}
-                        fill="#8884d8"
-                        dataKey="registrations"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      >
-                        {(analytics?.registrationTrends || registrationTrends).filter((item: any) => item.registrations > 0 || item.events > 0).map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'url(#pieBlueGradient)' : 'url(#pieGreenGradient)'} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
+                <PieChart data={registrationPieData} />
               )}
-              {(analytics?.registrationTrends || registrationTrends).filter((item: any) => item.registrations > 0 || item.events > 0).length === 0 && (
+              {registrationChartData.labels.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-sm text-gray-500">No data available for {selectedYear}</p>
                 </div>
@@ -467,131 +585,51 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Event Categories - Simple List */}
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-green-500/10 hover:shadow-xl hover:shadow-green-500/20 transition-all duration-300 rounded-2xl">
+          {/* Event Categories */}
+          <Card className="bg-white shadow-sm border border-gray-200">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-bold text-gray-800">Event Categories</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Event Categories</CardTitle>
                   <CardDescription className="text-gray-600">Distribution by category</CardDescription>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setCategoriesChartType('bar')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      categoriesChartType === 'bar' 
-                        ? 'bg-green-100 text-green-600' 
+                    className={`p-2 rounded-lg transition-colors ${categoriesChartType === 'bar'
+                        ? 'bg-green-100 text-green-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
                     <BarChart3 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setCategoriesChartType('pie')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      categoriesChartType === 'pie' 
-                        ? 'bg-green-100 text-green-600' 
+                    className={`p-2 rounded-lg transition-colors ${categoriesChartType === 'pie'
+                        ? 'bg-green-100 text-green-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
-                    <PieChart className="h-4 w-4" />
+                    <PieChartIcon className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {categoriesChartType === 'bar' ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={(analytics?.eventCategories || eventCategories).filter((cat: any) => cat.value > 0)}>
-                      <defs>
-                        <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10b981" />
-                          <stop offset="100%" stopColor="#059669" />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis 
-                        dataKey="name" 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                      />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value: any) => [value, 'Events']}
-                      />
-                      <Bar dataKey="value" fill="url(#greenGradient)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <BarChart data={categoriesChartData} />
               ) : (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <defs>
-                        <linearGradient id="categoryGreenGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#10b981" />
-                          <stop offset="100%" stopColor="#059669" />
-                        </linearGradient>
-                        <linearGradient id="categoryEmeraldGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#34d399" />
-                          <stop offset="100%" stopColor="#10b981" />
-                        </linearGradient>
-                      </defs>
-                      <Pie
-                        data={(analytics?.eventCategories || eventCategories).filter((cat: any) => cat.value > 0)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${value}`}
-                        outerRadius={90}
-                        innerRadius={30}
-                        fill="#8884d8"
-                        dataKey="value"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      >
-                        {(analytics?.eventCategories || eventCategories).filter((cat: any) => cat.value > 0).map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'url(#categoryGreenGradient)' : 'url(#categoryEmeraldGradient)'} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value: any) => [value, 'Events']} 
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
+                <PieChart data={categoriesPieData} />
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Revenue & Demographics - Simple Cards */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Revenue Summary */}
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-orange-500/10 hover:shadow-xl hover:shadow-orange-500/20 transition-all duration-300 rounded-2xl">
+          <Card className="bg-white shadow-sm border border-gray-200">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-bold text-gray-800">Revenue Summary</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Revenue Summary</CardTitle>
                   <CardDescription className="text-gray-600">
                     {timeRange === 'current-month' && 'Data pendapatan bulan ini'}
                     {timeRange === 'last-month' && 'Data pendapatan bulan lalu'}
@@ -602,107 +640,61 @@ export default function AdminDashboard() {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setRevenueChartType('bar')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      revenueChartType === 'bar' 
-                        ? 'bg-orange-100 text-orange-600' 
+                    className={`p-2 rounded-lg transition-colors ${revenueChartType === 'bar'
+                        ? 'bg-orange-100 text-orange-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
                     <BarChart3 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setRevenueChartType('pie')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      revenueChartType === 'pie' 
-                        ? 'bg-orange-100 text-orange-600' 
+                    className={`p-2 rounded-lg transition-colors ${revenueChartType === 'pie'
+                        ? 'bg-orange-100 text-orange-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
-                    <PieChart className="h-4 w-4" />
+                    <PieChartIcon className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {revenueChartType === 'bar' ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={(analytics?.revenueData || revenueData).filter((item: any) => item.revenue > 0)}>
-                      <defs>
-                        <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#f97316" />
-                          <stop offset="100%" stopColor="#ea580c" />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis 
-                        dataKey="month" 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                      />
-                      <YAxis 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(value) => `Rp ${value.toLocaleString()}`}
-                      />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value: any) => [formatCurrency(value), 'Revenue']}
-                      />
-                      <Bar dataKey="revenue" fill="url(#orangeGradient)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <BarChart
+                  data={revenueChartData}
+                  options={{
+                    scales: {
+                      y: {
+                        ticks: {
+                          callback: (value: any) => formatCurrency(value)
+                        }
+                      }
+                    },
+                    plugins: {
+                      tooltip: {
+                        callbacks: {
+                          label: (context: any) => `Revenue: ${formatCurrency(context.parsed.y)}`
+                        }
+                      }
+                    }
+                  }}
+                />
               ) : (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <defs>
-                        <linearGradient id="revenueOrangeGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#f97316" />
-                          <stop offset="100%" stopColor="#ea580c" />
-                        </linearGradient>
-                        <linearGradient id="revenueRedGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#fb923c" />
-                          <stop offset="100%" stopColor="#dc2626" />
-                        </linearGradient>
-                      </defs>
-                      <Pie
-                        data={(analytics?.revenueData || revenueData).filter((item: any) => item.revenue > 0)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ month, revenue }: any) => `${month}: ${formatCurrency(revenue)}`}
-                        outerRadius={90}
-                        innerRadius={30}
-                        fill="#8884d8"
-                        dataKey="revenue"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      >
-                        {(analytics?.revenueData || revenueData).filter((item: any) => item.revenue > 0).map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'url(#revenueOrangeGradient)' : 'url(#revenueRedGradient)'} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value: any) => [formatCurrency(value), 'Revenue']} 
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
+                <PieChart
+                  data={revenuePieData}
+                  options={{
+                    plugins: {
+                      tooltip: {
+                        callbacks: {
+                          label: (context: any) => `${context.label}: ${formatCurrency(context.parsed)}`
+                        }
+                      }
+                    }
+                  }}
+                />
               )}
-              {(analytics?.revenueData || revenueData).filter((item: any) => item.revenue > 0).length === 0 && (
+              {revenueChartData.labels.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-sm text-gray-500">No revenue data available for {selectedYear}</p>
                 </div>
@@ -710,187 +702,94 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Participant Demographics - Simple List */}
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg shadow-purple-500/10 hover:shadow-xl hover:shadow-purple-500/20 transition-all duration-300 rounded-2xl">
+          {/* Participant Demographics */}
+          <Card className="bg-white shadow-sm border border-gray-200">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-bold text-gray-800">Participant Demographics</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Participant Demographics</CardTitle>
                   <CardDescription className="text-gray-600">Age distribution of participants</CardDescription>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setDemographicsChartType('bar')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      demographicsChartType === 'bar' 
-                        ? 'bg-purple-100 text-purple-600' 
+                    className={`p-2 rounded-lg transition-colors ${demographicsChartType === 'bar'
+                        ? 'bg-purple-100 text-purple-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
                     <BarChart3 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setDemographicsChartType('pie')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      demographicsChartType === 'pie' 
-                        ? 'bg-purple-100 text-purple-600' 
+                    className={`p-2 rounded-lg transition-colors ${demographicsChartType === 'pie'
+                        ? 'bg-purple-100 text-purple-600'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                   >
-                    <PieChart className="h-4 w-4" />
+                    <PieChartIcon className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {demographicsChartType === 'bar' ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={(analytics?.participantDemographics || participantDemographics).filter((demo: any) => demo.count > 0)}>
-                      <defs>
-                        <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8b5cf6" />
-                          <stop offset="100%" stopColor="#7c3aed" />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis 
-                        dataKey="age" 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                      />
-                      <YAxis 
-                        className="text-xs"
-                        tick={{ fontSize: 12 }}
-                      />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value: any, name: any) => [value, name === 'count' ? 'Participants' : 'Percentage']}
-                      />
-                      <Bar dataKey="count" fill="url(#purpleGradient)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <BarChart data={demographicsChartData} />
               ) : (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <defs>
-                        <linearGradient id="demoPurpleGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#8b5cf6" />
-                          <stop offset="100%" stopColor="#7c3aed" />
-                        </linearGradient>
-                        <linearGradient id="demoVioletGradient" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#a855f7" />
-                          <stop offset="100%" stopColor="#9333ea" />
-                        </linearGradient>
-                      </defs>
-                      <Pie
-                        data={(analytics?.participantDemographics || participantDemographics).filter((demo: any) => demo.count > 0)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ age, count, percentage }: any) => `${age}: ${count} (${percentage}%)`}
-                        outerRadius={90}
-                        innerRadius={30}
-                        fill="#8884d8"
-                        dataKey="count"
-                        stroke="#fff"
-                        strokeWidth={2}
-                      >
-                        {(analytics?.participantDemographics || participantDemographics).filter((demo: any) => demo.count > 0).map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={index % 2 === 0 ? 'url(#demoPurpleGradient)' : 'url(#demoVioletGradient)'} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)'
-                        }}
-                        formatter={(value: any, name: any) => [value, name === 'count' ? 'Participants' : 'Percentage']} 
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
+                <PieChart data={demographicsPieData} />
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Recent Events */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 flex items-center mb-2">
-              <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-              Recent Events
-            </h3>
-            <p className="text-gray-600 text-sm">Latest events in your system</p>
-          </div>
-          
-          <div className="space-y-3">
-            {stats?.stats?.topEvents?.slice(0, 5).map((event, index) => (
-              <div key={event.id} className="group">
-                <div className="flex items-center p-4 bg-white border border-gray-200 hover:border-blue-300 hover:shadow-md rounded-xl transition-all duration-300">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
-                    {index + 1}
-                  </div>
-                  
-                  <div className="ml-4 flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900 group-hover:text-blue-700 transition-colors truncate">
-                          {event.title}
-                        </h4>
-                        <div className="flex items-center mt-1 space-x-4">
-                          <div className="flex items-center text-xs text-gray-500">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {formatDate(event.eventDate)}
-                          </div>
-                          <div className="flex items-center text-xs text-gray-500">
-                            <Users className="h-3 w-3 mr-1" />
-                            {event.participantCount} participants
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-md">
-                          Active
-                        </span>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                          <Eye className="h-4 w-4 text-gray-600" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+        {/* Top Events Table */}
+        {stats?.stats?.topEvents && stats.stats.topEvents.length > 0 && (
+          <Card className="bg-white shadow-sm border border-gray-200">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">Top Events</CardTitle>
+              <CardDescription className="text-gray-600">Most popular events by participant count</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Event</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Participants</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Organizer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.stats.topEvents.slice(0, 5).map((event) => (
+                      <tr key={event.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm text-gray-900">{event.title}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {new Date(event.eventDate).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-900 font-medium">{event.participantCount}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${event.isPublished
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                            }`}>
+                            {event.isPublished ? 'Published' : 'Draft'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{event.creator.fullName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )) || (
-              <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
-                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Calendar className="h-6 w-6 text-gray-400" />
-                </div>
-                <p className="text-gray-500 font-medium">No recent events</p>
-                <p className="text-gray-400 text-sm mt-1">Create your first event to get started</p>
-              </div>
-            )}
-          </div>
-          
-          {stats?.stats?.topEvents && stats.stats.topEvents.length > 5 && (
-            <div className="pt-3 border-t border-gray-200">
-              <button className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium py-2 hover:bg-blue-50 rounded-lg transition-colors">
-                View All Events ({stats.stats.topEvents.length})
-              </button>
-            </div>
-          )}
-        </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

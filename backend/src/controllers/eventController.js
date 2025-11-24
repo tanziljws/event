@@ -603,6 +603,27 @@ const getEventRegistrations = async (req, res) => {
   }
 };
 
+// Get organizer event analytics
+const getOrganizerEventAnalytics = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const organizerId = req.user.id;
+
+    const analytics = await eventService.getOrganizerEventAnalytics(id, organizerId);
+
+    res.status(200).json({
+      success: true,
+      data: analytics,
+    });
+  } catch (error) {
+    logger.error('Get organizer event analytics error:', error);
+    res.status(404).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // Verify private event password
 const verifyPrivateEventPassword = async (req, res) => {
   try {
@@ -834,4 +855,5 @@ module.exports = {
   verifyPrivateEventPassword,
   exportOrganizerEventAttendance,
   exportOrganizerEventRegistrations,
+  getOrganizerEventAnalytics,
 };

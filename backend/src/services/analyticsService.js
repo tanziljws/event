@@ -15,10 +15,10 @@ class AnalyticsService {
       if (cached) return cached;
 
       const { startDate, endDate } = this.getDateRange(timeRange);
-      
+
       // Get assignment statistics
       const assignments = await this.getAgentAssignments(agentId, startDate, endDate);
-      
+
       // Calculate metrics
       const metrics = {
         agentId,
@@ -61,8 +61,8 @@ class AnalyticsService {
       if (cached) return cached;
 
       const agents = await prisma.user.findMany({
-        where: { 
-          role: { in: ['OPS_AGENT', 'OPS_SENIOR_AGENT'] }
+        where: {
+          role: 'OPS_AGENT'
         },
         select: {
           id: true,
@@ -188,7 +188,7 @@ class AnalyticsService {
   calculateAverageProcessingTime(assignments) {
     const completedAssignments = assignments.filter(a => a.status === 'COMPLETED' && a.processingTime);
     if (completedAssignments.length === 0) return 0;
-    
+
     const totalTime = completedAssignments.reduce((sum, a) => sum + a.processingTime, 0);
     return Math.round(totalTime / completedAssignments.length);
   }
@@ -197,7 +197,7 @@ class AnalyticsService {
   calculateQualityScore(assignments) {
     const completionRate = this.calculateCompletionRate(assignments);
     const avgProcessingTime = this.calculateAverageProcessingTime(assignments);
-    
+
     // Quality score: completion rate weighted more than speed
     const speedScore = avgProcessingTime > 0 ? Math.max(0, 100 - (avgProcessingTime / 1000)) : 50;
     return Math.round((completionRate * 0.7) + (speedScore * 0.3));
@@ -213,28 +213,28 @@ class AnalyticsService {
   // Calculate total working hours
   calculateTotalHours(assignments) {
     if (assignments.length === 0) return 0;
-    
+
     const startTime = Math.min(...assignments.map(a => a.assignedAt.getTime()));
     const endTime = Math.max(...assignments.map(a => a.updatedAt.getTime()));
-    
+
     return Math.max(1, (endTime - startTime) / (1000 * 60 * 60)); // Convert to hours
   }
 
   // Calculate peak hours
   calculatePeakHours(assignments) {
     const hourCounts = new Array(24).fill(0);
-    
+
     assignments.forEach(assignment => {
       const hour = assignment.assignedAt.getHours();
       hourCounts[hour]++;
     });
-    
+
     const maxCount = Math.max(...hourCounts);
     const peakHours = hourCounts
       .map((count, hour) => ({ hour, count }))
       .filter(item => item.count === maxCount)
       .map(item => item.hour);
-    
+
     return peakHours;
   }
 
@@ -251,14 +251,14 @@ class AnalyticsService {
     try {
       const { startDate, endDate } = this.getDateRange(timeRange);
       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-      
+
       const trends = [];
       for (let i = 0; i < days; i++) {
         const dayStart = new Date(startDate.getTime() + (i * 24 * 60 * 60 * 1000));
         const dayEnd = new Date(dayStart.getTime() + (24 * 60 * 60 * 1000));
-        
+
         const dayAssignments = await this.getAgentAssignments(agentId, dayStart, dayEnd);
-        
+
         trends.push({
           date: dayStart.toISOString().split('T')[0],
           assignments: dayAssignments.length,
@@ -266,7 +266,7 @@ class AnalyticsService {
           avgProcessingTime: this.calculateAverageProcessingTime(dayAssignments)
         });
       }
-      
+
       return trends;
     } catch (error) {
       logger.error('Error getting performance trends:', error);
@@ -282,7 +282,7 @@ class AnalyticsService {
       efficiency: 0.2,
       capacityUtilization: 0.1
     };
-    
+
     return Math.round(
       (metrics.completionRate * weights.completionRate) +
       (metrics.qualityScore * weights.qualityScore) +
@@ -294,11 +294,11 @@ class AnalyticsService {
   // Calculate summary statistics
   calculateSummaryStats(agentsPerformance) {
     if (agentsPerformance.length === 0) return null;
-    
+
     const completionRates = agentsPerformance.map(a => a.metrics.completionRate);
     const qualityScores = agentsPerformance.map(a => a.metrics.qualityScore);
     const efficiencies = agentsPerformance.map(a => a.metrics.efficiency);
-    
+
     return {
       averageCompletionRate: Math.round(completionRates.reduce((a, b) => a + b, 0) / completionRates.length),
       averageQualityScore: Math.round(qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length),
@@ -338,7 +338,7 @@ class AnalyticsService {
   getDateRange(timeRange) {
     const endDate = new Date();
     let startDate = new Date();
-    
+
     switch (timeRange) {
       case '1d':
         startDate.setDate(endDate.getDate() - 1);
@@ -355,7 +355,7 @@ class AnalyticsService {
       default:
         startDate.setDate(endDate.getDate() - 7);
     }
-    
+
     return { startDate, endDate };
   }
 

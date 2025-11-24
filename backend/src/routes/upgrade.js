@@ -130,12 +130,30 @@ router.post('/business', authenticate, [
       });
     }
 
+    // Get current metadata or initialize empty object
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { metadata: true }
+    });
+    const currentMetadata = (currentUser && typeof currentUser.metadata === 'object' && currentUser.metadata !== null) 
+      ? currentUser.metadata 
+      : {};
+
     // Update user: Keep role as PARTICIPANT, only set organizerType and verificationStatus
+    // Set subscription plan to 'basic' in metadata (default for new organizers)
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         organizerType: organizerType,
-        verificationStatus: 'PENDING'
+        verificationStatus: 'PENDING',
+        metadata: {
+          ...currentMetadata,
+          subscriptionPlan: 'basic',
+          planLabel: 'Basic',
+          maxEventsPerMonth: 5,
+          maxParticipantsPerEvent: 100,
+          subscriptionStartedAt: new Date().toISOString(),
+        },
       },
       select: {
         id: true,

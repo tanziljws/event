@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,8 +71,10 @@ export function PaymentModal({
   const [selectedMethod, setSelectedMethod] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [paymentData, setPaymentData] = useState<any>(null)
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending')
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed' | 'cancelled'>('pending')
   const [checkingPayment, setCheckingPayment] = useState(false)
+  const [cancellingPayment, setCancellingPayment] = useState(false)
+  const paymentCheckIntervalRef = React.useRef<NodeJS.Timeout | null>(null)
   
   // Base URL for file access
   const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://web-production-38c7.up.railway.app'
@@ -90,6 +92,19 @@ export function PaymentModal({
         // Start checking payment status
         checkPaymentStatusInterval()
       }
+    } else {
+      // Clean up interval when modal closes
+      if (paymentCheckIntervalRef.current) {
+        clearInterval(paymentCheckIntervalRef.current)
+        paymentCheckIntervalRef.current = null
+      }
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (paymentCheckIntervalRef.current) {
+        clearInterval(paymentCheckIntervalRef.current)
+      }
     }
   }, [isOpen, paymentUrl])
 
@@ -97,7 +112,7 @@ export function PaymentModal({
   const checkPaymentStatusInterval = () => {
     if (!paymentId) return
     
-    const interval = setInterval(async () => {
+    paymentCheckIntervalRef.current = setInterval(async () => {
       try {
         setCheckingPayment(true)
         const response = await ApiService.checkPaymentStatus(paymentId)
@@ -105,14 +120,26 @@ export function PaymentModal({
           const payment = response.data.payment || response.data
           if (payment.paymentStatus === 'PAID') {
             setPaymentStatus('success')
-            clearInterval(interval)
+            if (paymentCheckIntervalRef.current) {
+              clearInterval(paymentCheckIntervalRef.current)
+              paymentCheckIntervalRef.current = null
+            }
             setTimeout(() => {
               onPaymentSuccess()
               onClose()
             }, 2000)
-          } else if (payment.paymentStatus === 'FAILED' || payment.paymentStatus === 'CANCELLED') {
+          } else if (payment.paymentStatus === 'FAILED') {
             setPaymentStatus('failed')
-            clearInterval(interval)
+            if (paymentCheckIntervalRef.current) {
+              clearInterval(paymentCheckIntervalRef.current)
+              paymentCheckIntervalRef.current = null
+            }
+          } else if (payment.paymentStatus === 'EXPIRED' || payment.paymentStatus === 'CANCELLED') {
+            setPaymentStatus('cancelled')
+            if (paymentCheckIntervalRef.current) {
+              clearInterval(paymentCheckIntervalRef.current)
+              paymentCheckIntervalRef.current = null
+            }
           }
         }
       } catch (error) {
@@ -124,8 +151,36 @@ export function PaymentModal({
 
     // Clear interval after 5 minutes
     setTimeout(() => {
-      clearInterval(interval)
+      if (paymentCheckIntervalRef.current) {
+        clearInterval(paymentCheckIntervalRef.current)
+        paymentCheckIntervalRef.current = null
+      }
     }, 300000)
+  }
+
+  // Handle modal close with payment cancellation
+  const handleClose = async () => {
+    // If payment is processing and has paymentId, cancel it
+    if (paymentStatus === 'processing' && paymentId) {
+      try {
+        setCancellingPayment(true)
+        await ApiService.cancelPayment(paymentId)
+        setPaymentStatus('cancelled')
+        // Wait a bit before closing to show cancelled status
+        setTimeout(() => {
+          onClose()
+        }, 1500)
+      } catch (error) {
+        console.error('Error cancelling payment:', error)
+        // Close anyway even if cancel fails
+        onClose()
+      } finally {
+        setCancellingPayment(false)
+      }
+    } else {
+      // Just close if not processing
+      onClose()
+    }
   }
 
   const handlePaymentMethodSelect = async (methodId: string) => {
@@ -210,6 +265,16 @@ export function PaymentModal({
       )
     }
 
+    if (paymentStatus === 'cancelled') {
+      return (
+        <div className="text-center py-8">
+          <XCircle className="h-16 w-16 text-orange-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-orange-800 mb-2">Pembayaran Dibatalkan</h3>
+          <p className="text-gray-600 mb-4">Pembayaran telah dibatalkan. Anda dapat mencoba lagi nanti.</p>
+        </div>
+      )
+    }
+
     if (paymentStatus === 'failed') {
       return (
         <div className="text-center py-8">
@@ -225,11 +290,14 @@ export function PaymentModal({
 
     if (paymentStatus === 'processing' && paymentData) {
       return (
-        <div className="space-y-4">
-          <div className="text-center py-4">
-            <Clock className="h-12 w-12 text-blue-500 mx-auto mb-2" />
-            <h3 className="text-lg font-semibold">Menunggu Pembayaran</h3>
-            <p className="text-gray-600">Silakan selesaikan pembayaran sesuai instruksi di bawah ini.</p>
+        <div className="space-y-6">
+          <div className="text-center py-6">
+            <div className="relative inline-block mb-4">
+              <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-75"></div>
+              <Clock className="h-16 w-16 text-blue-600 mx-auto relative" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Menunggu Pembayaran</h3>
+            <p className="text-gray-600 text-sm">Silakan selesaikan pembayaran sesuai instruksi di bawah ini.</p>
           </div>
 
           {selectedMethod === 'gateway' && paymentData.paymentUrl && (
@@ -348,7 +416,7 @@ export function PaymentModal({
             </div>
           )}
 
-          {!currentPaymentUrl && (
+          {!paymentUrl && (
           <div className="flex space-x-3">
             <Button onClick={handlePaymentComplete} className="flex-1">
               <CheckCircle className="h-4 w-4 mr-2" />
@@ -360,14 +428,33 @@ export function PaymentModal({
           </div>
           )}
           
-          {currentPaymentUrl && paymentId && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800 mb-2">
-                <strong>Status Pembayaran:</strong> {checkingPayment ? 'Memeriksa...' : 'Menunggu pembayaran'}
+          {paymentUrl && paymentId && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-900 mb-1">
+                    Status Pembayaran
+                  </p>
+                  <p className="text-sm text-blue-700 mb-2">
+                    {checkingPayment ? (
+                      <span className="inline-flex items-center">
+                        <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></span>
+                        Memeriksa...
+                      </span>
+                    ) : (
+                      'Menunggu pembayaran'
+                    )}
               </p>
-              <p className="text-xs text-blue-600">
+                  <p className="text-xs text-gray-600 leading-relaxed">
                 Pembayaran akan diverifikasi otomatis. Jika sudah membayar, tunggu beberapa saat untuk konfirmasi.
               </p>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -413,25 +500,45 @@ export function PaymentModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Pembayaran Event">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Pembayaran Event" size="lg">
       <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">{eventTitle}</h2>
-          <p className="text-gray-600">Selesaikan pembayaran untuk menyelesaikan registrasi</p>
+        <div className="text-center border-b pb-4">
+          <h2 className="text-xl font-semibold text-gray-900 mb-1">{eventTitle}</h2>
+          <p className="text-sm text-gray-600">Selesaikan pembayaran untuk menyelesaikan registrasi</p>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-8">
+        {loading || cancellingPayment ? (
+          <div className="flex flex-col items-center justify-center py-12">
             <LoadingSpinner size="lg" />
+            <p className="text-sm text-gray-600 mt-4">
+              {cancellingPayment ? 'Membatalkan pembayaran...' : 'Memproses...'}
+            </p>
           </div>
         ) : (
           renderPaymentContent()
         )}
 
         {paymentStatus === 'pending' && (
-          <div className="flex justify-end space-x-3">
-            <Button onClick={onClose} variant="outline">
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <Button 
+              onClick={handleClose} 
+              variant="outline"
+              className="min-w-[100px]"
+            >
               Batal
+            </Button>
+          </div>
+        )}
+
+        {paymentStatus === 'processing' && (
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <Button 
+              onClick={handleClose} 
+              variant="outline"
+              className="min-w-[100px]"
+              disabled={cancellingPayment}
+            >
+              {cancellingPayment ? 'Membatalkan...' : 'Batalkan Pembayaran'}
             </Button>
           </div>
         )}

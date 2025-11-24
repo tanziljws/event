@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const logger = require('../config/logger');
-const { emailTemplates } = require('../config/email');
+const { emailTemplates } = require('../config/brevoEmail');
 const paymentService = require('./paymentService');
 
 class EventCancellationService {

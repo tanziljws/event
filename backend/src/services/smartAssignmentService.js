@@ -43,8 +43,8 @@ class SmartAssignmentService {
   async getAvailableAgents() {
     try {
       const agents = await prisma.user.findMany({
-        where: { 
-          role: { in: ['OPS_AGENT', 'OPS_SENIOR_AGENT'] }
+        where: {
+          role: 'OPS_AGENT' // Removed OPS_SENIOR_AGENT as it's not a valid enum value
         },
         select: {
           id: true,
@@ -134,7 +134,7 @@ class SmartAssignmentService {
           orderBy: { assignedAt: 'desc' }
         }),
         prisma.user.findMany({
-          where: { 
+          where: {
             organizerType: { not: null },
             verificationStatus: 'PENDING',
             assignedTo: agentId
@@ -230,19 +230,16 @@ class SmartAssignmentService {
 
       // Skill-based scoring (based on role)
       let skillScore = 0;
-      if (agent.role === 'OPS_SENIOR_AGENT') {
-        skillScore = ASSIGNMENT_RULES.SKILL_WEIGHTS.EVENT_MANAGEMENT + 
-                    ASSIGNMENT_RULES.SKILL_WEIGHTS.ORGANIZER_VERIFICATION;
-      } else if (agent.role === 'OPS_AGENT') {
-        skillScore = ASSIGNMENT_RULES.SKILL_WEIGHTS.DOCUMENT_REVIEW + 
-                    ASSIGNMENT_RULES.SKILL_WEIGHTS.CUSTOMER_SERVICE;
+      if (agent.role === 'OPS_AGENT') {
+        skillScore = ASSIGNMENT_RULES.SKILL_WEIGHTS.DOCUMENT_REVIEW +
+          ASSIGNMENT_RULES.SKILL_WEIGHTS.CUSTOMER_SERVICE;
       }
 
       // Time-based scoring
       const now = new Date();
       const hour = now.getHours();
       const dayOfWeek = now.getDay();
-      
+
       let timeScore = 0;
       if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Weekday
         if (hour >= this.BUSINESS_HOURS.start && hour < this.BUSINESS_HOURS.end) {
@@ -285,7 +282,7 @@ class SmartAssignmentService {
   async assignToBestAgent(type, itemId, priority = 'NORMAL') {
     try {
       const availableAgents = await this.getAvailableAgents();
-      
+
       if (availableAgents.length === 0) {
         logger.warn('No available agents for assignment');
         return await this.addToQueue(type, itemId, priority);
@@ -317,9 +314,9 @@ class SmartAssignmentService {
 
       // Perform assignment
       await this.performAssignment(type, itemId, selectedAgent.id);
-      
+
       logger.info(`Assigned ${type} ${itemId} to agent ${selectedAgent.fullName} (${selectedAgent.id})`);
-      
+
       return {
         success: true,
         assignedTo: selectedAgent.id,
@@ -337,8 +334,8 @@ class SmartAssignmentService {
   selectByWorkload(agents) {
     const availableAgents = agents.filter(agent => agent.isAvailable);
     if (availableAgents.length === 0) return null;
-    
-    return availableAgents.reduce((min, agent) => 
+
+    return availableAgents.reduce((min, agent) =>
       agent.workload < min.workload ? agent : min
     );
   }
@@ -347,7 +344,7 @@ class SmartAssignmentService {
   selectByRoundRobin(agents) {
     const availableAgents = agents.filter(agent => agent.isAvailable);
     if (availableAgents.length === 0) return null;
-    
+
     // Simple round robin based on current time
     const index = Math.floor(Date.now() / 1000) % availableAgents.length;
     return availableAgents[index];
@@ -377,7 +374,7 @@ class SmartAssignmentService {
       // Return the best scoring agent
       const bestAgent = agentScores[0];
       const agent = agents.find(a => a.id === bestAgent.agentId);
-      
+
       if (agent) {
         logger.info(`Advanced scoring selected agent ${bestAgent.agentName} with score ${bestAgent.score}`, bestAgent.breakdown);
         return agent;
@@ -399,14 +396,14 @@ class SmartAssignmentService {
           where: { id: itemId },
           select: { id: true }
         });
-        
+
         if (!event) {
           throw new Error(`Event with ID ${itemId} not found`);
         }
-        
+
         await prisma.event.update({
           where: { id: itemId },
-          data: { 
+          data: {
             assignedTo: agentId,
             assignedAt: new Date()
           }
@@ -417,19 +414,19 @@ class SmartAssignmentService {
           where: { id: itemId },
           select: { id: true, role: true, organizerType: true, verificationStatus: true }
         });
-        
+
         if (!user) {
           throw new Error(`User with ID ${itemId} not found`);
         }
-        
+
         // Allow assignment if user has organizerType and is PENDING (can be PARTICIPANT or ORGANIZER)
         if (!user.organizerType || user.verificationStatus !== 'PENDING') {
           throw new Error(`User ${itemId} is not a pending organizer request`);
         }
-        
+
         await prisma.user.update({
           where: { id: itemId },
-          data: { 
+          data: {
             assignedTo: agentId,
             assignedAt: new Date()
           }
@@ -482,7 +479,7 @@ class SmartAssignmentService {
       });
 
       logger.info(`Added ${type} ${itemId} to assignment queue with priority ${priority}`);
-      
+
       // Send queue notification
       notificationService.notifyQueueUpdate({
         totalQueued: 1, // This will be updated by queue status
@@ -490,7 +487,7 @@ class SmartAssignmentService {
         type,
         itemId
       });
-      
+
       return {
         success: true,
         queued: true,
@@ -527,14 +524,14 @@ class SmartAssignmentService {
 
       for (const item of queuedItems) {
         const availableAgent = availableAgents.find(agent => agent.isAvailable);
-        
+
         if (availableAgent) {
           try {
             await this.performAssignment(item.type, item.itemId, availableAgent.id);
-            
+
             await prisma.assignmentQueue.update({
               where: { id: item.id },
-              data: { 
+              data: {
                 status: 'ASSIGNED',
                 assignedTo: availableAgent.id,
                 assignedAt: new Date()
@@ -545,16 +542,16 @@ class SmartAssignmentService {
             logger.info(`Processed queue item ${item.id}: ${item.type} ${item.itemId} assigned to ${availableAgent.fullName}`);
           } catch (assignmentError) {
             logger.error(`Failed to process queue item ${item.id}: ${assignmentError.message}`);
-            
+
             // Mark item as failed
             await prisma.assignmentQueue.update({
               where: { id: item.id },
-              data: { 
+              data: {
                 status: 'FAILED',
                 assignedAt: new Date()
               }
             });
-            
+
             // Continue processing other items
             continue;
           }
@@ -610,13 +607,13 @@ class SmartAssignmentService {
   async reassign(type, itemId, newAgentId, reason = 'Manual reassignment') {
     try {
       const currentAssignment = await this.getCurrentAssignment(type, itemId);
-      
+
       if (currentAssignment) {
         // Update assignment
         await this.performAssignment(type, itemId, newAgentId);
-        
+
         logger.info(`Reassigned ${type} ${itemId} from ${currentAssignment.assignedTo} to ${newAgentId}. Reason: ${reason}`);
-        
+
         return {
           success: true,
           reassigned: true,
@@ -627,7 +624,7 @@ class SmartAssignmentService {
       } else {
         // No current assignment, just assign
         await this.performAssignment(type, itemId, newAgentId);
-        
+
         return {
           success: true,
           assigned: true,
@@ -682,7 +679,7 @@ class SmartAssignmentService {
         recentAssignments,
         totalCapacity: agents.length * this.MAX_CAPACITY_PER_AGENT,
         totalWorkload: agents.reduce((sum, agent) => sum + agent.workload, 0),
-        utilizationRate: agents.length > 0 ? 
+        utilizationRate: agents.length > 0 ?
           (agents.reduce((sum, agent) => sum + agent.workload, 0) / (agents.length * this.MAX_CAPACITY_PER_AGENT)) * 100 : 0
       };
     } catch (error) {
@@ -718,7 +715,7 @@ class SmartAssignmentService {
 
       // Get agent's assigned organizer requests (can be PARTICIPANT or ORGANIZER)
       const assignedOrganizers = await prisma.user.findMany({
-        where: { 
+        where: {
           organizerType: { not: null },
           assignedTo: agentId
         },
@@ -754,7 +751,7 @@ class SmartAssignmentService {
       });
 
       const recentOrganizers = await prisma.user.findMany({
-        where: { 
+        where: {
           role: 'ORGANIZER',
           assignedTo: agentId
         },
@@ -843,7 +840,7 @@ class SmartAssignmentService {
       // Events are now free and don't need operations approval
       // Only fetch organizers that need verification
       const recentOrganizers = await prisma.user.findMany({
-        where: { 
+        where: {
           role: 'ORGANIZER',
           assignedTo: { not: null }
         },
@@ -890,15 +887,15 @@ class SmartAssignmentService {
   // Set assignment strategy
   async setAssignmentStrategy(strategy) {
     const validStrategies = ['WORKLOAD_BASED', 'ROUND_ROBIN', 'SKILL_BASED', 'ADVANCED'];
-    
+
     if (!validStrategies.includes(strategy)) {
       throw new Error(`Invalid strategy. Must be one of: ${validStrategies.join(', ')}`);
     }
 
     this.ASSIGNMENT_STRATEGY = strategy;
-    
+
     logger.info(`Assignment strategy changed to: ${strategy}`);
-    
+
     return {
       success: true,
       message: `Assignment strategy updated to ${strategy}`,
@@ -910,7 +907,7 @@ class SmartAssignmentService {
   async testAssignmentScoring(type, itemId, priority = 'NORMAL') {
     try {
       const agents = await this.getAvailableAgents();
-      
+
       const scores = await Promise.all(
         agents.map(agent => this.calculateAssignmentScore(agent.id, type, itemId, priority))
       );
@@ -942,7 +939,7 @@ class SmartAssignmentService {
       }
 
       const oldAgentId = currentAssignment.assignedTo;
-      
+
       // Check if new agent has capacity
       const newAgentWorkload = await this.getAgentWorkload(newAgentId);
       if (newAgentWorkload.total >= this.MAX_CAPACITY_PER_AGENT) {
@@ -1003,30 +1000,30 @@ class SmartAssignmentService {
     try {
       const agents = await this.getAvailableAgents();
       const overloadedAgents = agents.filter(agent => agent.workload >= this.MAX_CAPACITY_PER_AGENT);
-      
+
       if (overloadedAgents.length === 0) {
         return { reassigned: 0, message: 'No overloaded agents found' };
       }
 
       let reassignedCount = 0;
-      
+
       for (const overloadedAgent of overloadedAgents) {
         // Get assignments that can be reassigned
         const reassignableAssignments = await this.getReassignableAssignments(overloadedAgent.id);
-        
+
         for (const assignment of reassignableAssignments) {
           // Find best alternative agent
           const alternativeAgent = await this.findBestAlternativeAgent(
-            assignment.type, 
-            assignment.itemId, 
+            assignment.type,
+            assignment.itemId,
             overloadedAgent.id
           );
-          
+
           if (alternativeAgent) {
             await this.reassign(
-              assignment.type, 
-              assignment.itemId, 
-              alternativeAgent.id, 
+              assignment.type,
+              assignment.itemId,
+              alternativeAgent.id,
               'Auto-reassignment for load balancing'
             );
             reassignedCount++;
@@ -1049,7 +1046,7 @@ class SmartAssignmentService {
   async reassignForPerformance() {
     try {
       const agents = await this.getAvailableAgents();
-      
+
       // Get performance metrics for all agents
       const performanceData = await Promise.all(
         agents.map(async (agent) => {
@@ -1072,14 +1069,14 @@ class SmartAssignmentService {
 
       for (const underperformingAgent of underperformingAgents) {
         const reassignableAssignments = await this.getReassignableAssignments(underperformingAgent.id);
-        
+
         for (const assignment of reassignableAssignments.slice(0, 2)) { // Limit to 2 reassignments per agent
           const bestAgent = performanceData.find(
-            agent => agent.id !== underperformingAgent.id && 
-            agent.performance.qualityScore > underperformingAgent.performance.qualityScore &&
-            agent.workload < this.MAX_CAPACITY_PER_AGENT
+            agent => agent.id !== underperformingAgent.id &&
+              agent.performance.qualityScore > underperformingAgent.performance.qualityScore &&
+              agent.workload < this.MAX_CAPACITY_PER_AGENT
           );
-          
+
           if (bestAgent) {
             await this.reassign(
               assignment.type,
@@ -1168,7 +1165,7 @@ class SmartAssignmentService {
   async findBestAlternativeAgent(type, itemId, excludeAgentId) {
     try {
       const agents = await this.getAvailableAgents();
-      const availableAgents = agents.filter(agent => 
+      const availableAgents = agents.filter(agent =>
         agent.id !== excludeAgentId && agent.workload < this.MAX_CAPACITY_PER_AGENT
       );
 

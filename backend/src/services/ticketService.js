@@ -217,6 +217,7 @@ const getUserTickets = async (participantId, filters = {}) => {
 
     const where = {
       participantId,
+      status: 'ACTIVE', // Only show active registrations
     };
 
     // Add search filter

@@ -60,6 +60,7 @@ const optionalAuthenticate = async (req, res, next) => {
         verificationStatus: true,
         emailVerified: true,
         tokenVersion: true,
+        metadata: true,
       },
     });
 
@@ -126,6 +127,7 @@ const authenticate = async (req, res, next) => {
         rejectedReason: true,
         assignedTo: true,
         assignedAt: true,
+        metadata: true,
         createdAt: true,
         updatedAt: true,
         individualProfile: true,
@@ -234,8 +236,36 @@ const requireParticipant = (req, res, next) => {
 };
 
 // Authorization middleware for organizer only - returns 404 for security
+// Blocks access if user is in participant mode (temporary role)
 const requireOrganizer = (req, res, next) => {
-  if (req.user.role !== 'ORGANIZER' && req.user.role !== 'ADMIN') {
+  // Check if user exists
+  if (!req.user) {
+    logger.warn('requireOrganizer: No user in request');
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+      error: 'UNAUTHORIZED'
+    });
+  }
+
+  // Check if user is in participant mode (temporary role)
+  const metadata = req.user.metadata && typeof req.user.metadata === 'object' && req.user.metadata !== null ? req.user.metadata : null;
+  const temporaryRole = metadata?.temporaryRole;
+  
+  logger.info(`requireOrganizer check - User: ${req.user.id}, Role: ${req.user.role}, TemporaryRole: ${temporaryRole}`);
+  
+  // If in participant mode, block organizer access
+  if (temporaryRole === 'PARTICIPANT') {
+    logger.warn(`requireOrganizer: User ${req.user.id} is in PARTICIPANT mode`);
+    return res.status(404).json({
+      success: false,
+      message: 'Resource not found',
+      error: 'NOT_FOUND'
+    });
+  }
+  
+  if (req.user.role !== 'ORGANIZER' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+    logger.warn(`requireOrganizer: User ${req.user.id} has role ${req.user.role}, not ORGANIZER/ADMIN`);
     // Return 404 instead of 403 for security - don't reveal that organizer endpoints exist
     return res.status(404).json({
       success: false,
@@ -243,11 +273,27 @@ const requireOrganizer = (req, res, next) => {
       error: 'NOT_FOUND'
     });
   }
+  
+  logger.info(`requireOrganizer: Access granted for user ${req.user.id}`);
   next();
 };
 
 // Authorization middleware for verified organizer only
+// Blocks access if user is in participant mode (temporary role)
 const requireVerifiedOrganizer = (req, res, next) => {
+  // Check if user is in participant mode (temporary role)
+  const metadata = req.user.metadata && typeof req.user.metadata === 'object' && req.user.metadata !== null ? req.user.metadata : null;
+  const temporaryRole = metadata?.temporaryRole;
+  
+  // If in participant mode, block organizer access
+  if (temporaryRole === 'PARTICIPANT') {
+    return res.status(404).json({
+      success: false,
+      message: 'Resource not found',
+      error: 'NOT_FOUND'
+    });
+  }
+  
   if (req.user.role !== 'ORGANIZER' && req.user.role !== 'ADMIN') {
     return res.status(404).json({
       success: false,

@@ -1,14 +1,11 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { prisma } = require('../config/database');
-// Use webhook email service if available, fallback to SMTP
-const { emailTemplates } = process.env.WEBHOOK_EMAIL_URL 
-  ? require('../config/webhook-email')
-  : require('../config/email');
+// Use Brevo email service
+const { emailTemplates } = require('../config/brevoEmail');
 const { generateToken, generateRefreshToken } = require('../middlewares/auth');
 const logger = require('../config/logger');
 const smartAssignmentService = require('./smartAssignmentService');
-const emailService = require('./emailService');
 
 // Helper functions for capacity management
 const getAssignedEventIds = async (userId, role) => {
@@ -151,7 +148,7 @@ const registerOrganizerWithProfile = async (userData) => {
 
     // Create user and profile in transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create user
+      // Create user with Basic plan metadata (default for new organizers)
       const user = await tx.user.create({
         data: {
           fullName,
@@ -165,6 +162,13 @@ const registerOrganizerWithProfile = async (userData) => {
           verificationStatus: 'PENDING',
           verificationToken,
           verificationTokenExpires,
+          metadata: {
+            subscriptionPlan: 'basic',
+            planLabel: 'Basic',
+            maxEventsPerMonth: 5,
+            maxParticipantsPerEvent: 100,
+            subscriptionStartedAt: new Date().toISOString(),
+          },
         },
         select: {
           id: true,
@@ -284,7 +288,7 @@ const registerOrganizerWithProfile = async (userData) => {
 
     // Send verification email with OTP (with fallback)
     try {
-      await emailService.sendVerificationEmail(email, fullName, otpCode);
+      await emailTemplates.sendVerificationEmail(email, fullName, otpCode);
       logger.info(`✅ Email verification OTP sent to: ${email}`);
     } catch (emailError) {
       logger.error('Failed to send verification email:', emailError);
@@ -580,9 +584,31 @@ const loginUser = async (email, password) => {
     });
     console.log('🔍 User exists check:', userExists);
     
-    // Find user
+    // Find user (exclude metadata for now since it might not exist in database yet)
     const user = await prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        password: true,
+        role: true,
+        emailVerified: true,
+        verificationStatus: true,
+        organizerType: true,
+        phoneNumber: true,
+        address: true,
+        lastEducation: true,
+        createdAt: true,
+        updatedAt: true,
+        lastActivity: true,
+        tokenVersion: true,
+        verifiedAt: true,
+        rejectedReason: true,
+        assignedTo: true,
+        assignedAt: true,
+        metadata: true,
+      },
     });
 
     if (!user) {
@@ -1002,10 +1028,10 @@ const verifyOrganizer = async (organizerId, action, reason = null) => {
     // Send email notification
     try {
       if (action === 'approve') {
-        await emailService.sendOrganizerApprovalEmail(organizer.email, organizer.fullName);
+        await emailTemplates.sendOrganizerApprovalEmail(organizer.email, organizer.fullName);
         logger.info(`✅ Organizer approval email sent to: ${organizer.email}`);
       } else if (action === 'reject') {
-        await emailService.sendOrganizerRejectionEmail(organizer.email, organizer.fullName, reason);
+        await emailTemplates.sendOrganizerRejectionEmail(organizer.email, organizer.fullName, reason);
         logger.info(`✅ Organizer rejection email sent to: ${organizer.email}`);
       }
     } catch (emailError) {
@@ -1177,6 +1203,175 @@ const getOrganizersForReview = async (filters = {}, userRole = null, userId = nu
   }
 };
 
+// Switch role (organizer <-> participant)
+// Allows:
+// 1. Participant with approved organizer request to switch to organizer mode
+// 2. Approved organizer to switch to participant mode
+const switchRole = async (userId, targetRole) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        organizerType: true,
+        verificationStatus: true,
+        metadata: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const metadata = typeof user.metadata === 'object' && user.metadata !== null ? user.metadata : {};
+    const isInParticipantMode = metadata.temporaryRole === 'PARTICIPANT';
+    const isInOrganizerMode = !isInParticipantMode;
+
+    // Case 1: Participant with approved organizer request wants to switch to organizer mode
+    if (user.role === 'PARTICIPANT' && user.organizerType && user.verificationStatus === 'APPROVED') {
+      if (targetRole === 'ORGANIZER') {
+        // Switch to organizer mode (temporary - store in metadata)
+        const updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: {
+            metadata: {
+              ...metadata,
+              temporaryRole: 'ORGANIZER',
+              originalRole: 'PARTICIPANT',
+              roleSwitchedAt: new Date().toISOString(),
+            },
+          },
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            role: true,
+            organizerType: true,
+            verificationStatus: true,
+            metadata: true,
+          },
+        });
+
+        logger.info(`User ${user.email} (participant) switched to organizer mode`);
+        return {
+          success: true,
+          message: 'Switched to organizer mode',
+          user: updatedUser,
+          currentMode: 'ORGANIZER',
+        };
+      }
+    }
+
+    // Case 2: Approved organizer wants to switch to participant mode
+    if (user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED') {
+      if (targetRole === 'PARTICIPANT') {
+        // Switch to participant mode (temporary - store in metadata)
+        const updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: {
+            metadata: {
+              ...metadata,
+              temporaryRole: 'PARTICIPANT',
+              originalRole: 'ORGANIZER',
+              roleSwitchedAt: new Date().toISOString(),
+            },
+          },
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            role: true,
+            organizerType: true,
+            verificationStatus: true,
+            metadata: true,
+          },
+        });
+
+        logger.info(`User ${user.email} (organizer) switched to participant mode`);
+        return {
+          success: true,
+          message: 'Switched to participant mode',
+          user: updatedUser,
+          currentMode: 'PARTICIPANT',
+        };
+      }
+    }
+
+    // Case 3: Switch back to original role (if currently in temporary mode)
+    if (isInParticipantMode && metadata.originalRole === 'ORGANIZER' && targetRole === 'ORGANIZER') {
+      // Switch back to organizer mode
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          metadata: {
+            ...metadata,
+            temporaryRole: null,
+            originalRole: null,
+            roleSwitchedAt: null,
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          organizerType: true,
+          verificationStatus: true,
+          metadata: true,
+        },
+      });
+
+      logger.info(`User ${user.email} switched back to organizer mode`);
+      return {
+        success: true,
+        message: 'Switched back to organizer mode',
+        user: updatedUser,
+        currentMode: 'ORGANIZER',
+      };
+    }
+
+    if (isInOrganizerMode && metadata.originalRole === 'PARTICIPANT' && targetRole === 'PARTICIPANT') {
+      // Switch back to participant mode
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          metadata: {
+            ...metadata,
+            temporaryRole: null,
+            originalRole: null,
+            roleSwitchedAt: null,
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          organizerType: true,
+          verificationStatus: true,
+          metadata: true,
+        },
+      });
+
+      logger.info(`User ${user.email} switched back to participant mode`);
+      return {
+        success: true,
+        message: 'Switched back to participant mode',
+        user: updatedUser,
+        currentMode: 'PARTICIPANT',
+      };
+    }
+
+    throw new Error('Invalid role switch. You must be an approved organizer or participant with approved organizer request to switch roles.');
+  } catch (error) {
+    logger.error('Switch role error:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   generateOTP,
   generateVerificationToken,
@@ -1197,4 +1392,5 @@ module.exports = {
   updateUserProfile,
   verifyOrganizer,
   getOrganizersForReview,
+  switchRole,
 };

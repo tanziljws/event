@@ -225,6 +225,9 @@ app.use('/api/global-certificate-templates', (req, res, next) => {
 app.use('/api/upload', lazyRoute('./routes/upload'));
 
 // Admin routes
+app.use('/api/admin/users', lazyRoute('./routes/admin-users'));
+app.use('/api/admin/events-control', lazyRoute('./routes/admin-events'));
+app.use('/api/admin/settings', lazyRoute('./routes/settings'));
 app.use('/api/admin', lazyRoute('./routes/admin'));
 
 // Other routes (all lazy loaded)
@@ -247,6 +250,11 @@ app.use('/api/user-stats', lazyRoute('./routes/userStats'));
 // Payment and Ticket routes (before ticketTypes)
 app.use('/api/payments', lazyRoute('./routes/payments'));
 app.use('/api/tickets', lazyRoute('./routes/tickets'));
+
+// Balance and Payout routes
+app.use('/api/balance', lazyRoute('./routes/balance'));
+app.use('/api/payout-accounts', lazyRoute('./routes/payout-accounts'));
+app.use('/api/disbursements', lazyRoute('./routes/disbursements'));
 
 // Contact routes
 app.use('/api/contact', lazyRoute('./routes/contact'));

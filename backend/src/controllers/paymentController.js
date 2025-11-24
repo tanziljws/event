@@ -161,6 +161,167 @@ const paymentController = {
         error: error.message
       });
     }
+  },
+
+  // Get payment by order ID
+  async getPaymentByOrderId(req, res) {
+    try {
+      const { orderId } = req.params;
+      // userId is optional - if user is authenticated, use it for security
+      // If not authenticated, we can still get payment by orderId (for public success page)
+      const userId = req.user?.id || null;
+
+      console.log('🔍 PAYMENT: Getting payment by order ID:', orderId, 'for user:', userId || 'anonymous');
+
+      const result = await paymentService.getPaymentByOrderId(orderId, userId);
+
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+
+      res.status(200).json(result);
+
+    } catch (error) {
+      console.error('❌ PAYMENT: Error getting payment by order ID:', error);
+      console.error('❌ PAYMENT: Error stack:', error.stack);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get payment',
+        error: error.message || 'Internal server error'
+      });
+    }
+  },
+
+  // Sync payment status with Midtrans
+  async syncPaymentStatus(req, res) {
+    try {
+      const { orderId } = req.params;
+      const userId = req.user?.id || null;
+
+      console.log('🔄 PAYMENT: Syncing payment status with Midtrans for order:', orderId);
+
+      const result = await paymentService.syncPaymentStatusWithMidtrans(orderId, userId);
+
+      res.status(200).json(result);
+
+    } catch (error) {
+      console.error('❌ PAYMENT: Error syncing payment status:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to sync payment status',
+        error: error.message
+      });
+    }
+  },
+
+  // Trigger registration manually
+  async triggerRegistration(req, res) {
+    try {
+      const { paymentId } = req.params;
+      const userId = req.user.id;
+
+      console.log('🔄 PAYMENT: Triggering registration for payment:', paymentId);
+
+      const result = await paymentService.triggerRegistrationFromPayment(paymentId, userId);
+
+      res.status(200).json(result);
+
+    } catch (error) {
+      console.error('❌ PAYMENT: Error triggering registration:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to trigger registration',
+        error: error.message
+      });
+    }
+  },
+
+  // Download invoice
+  async downloadInvoice(req, res) {
+    try {
+      const { paymentId } = req.params;
+      const userId = req.user.id;
+
+      console.log('📄 PAYMENT: Download invoice request:', paymentId);
+
+      // Get payment with invoice URL
+      const payment = await paymentService.getPaymentById(paymentId);
+
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found'
+        });
+      }
+
+      // Check if user owns this payment
+      if (payment.userId !== userId && req.user.role !== 'SUPER_ADMIN') {
+        return res.status(403).json({
+          success: false,
+          message: 'Unauthorized to access this invoice'
+        });
+      }
+
+      // Get invoice URL from metadata
+      const invoiceUrl = payment.metadata?.invoiceUrl;
+
+      if (!invoiceUrl) {
+        return res.status(404).json({
+          success: false,
+          message: 'Invoice not found for this payment'
+        });
+      }
+
+      // Read invoice file
+      const path = require('path');
+      const fs = require('fs').promises;
+      const invoicePath = path.join(__dirname, '../../uploads/invoices', path.basename(invoiceUrl));
+
+      try {
+        const invoiceBuffer = await fs.readFile(invoicePath);
+        const invoiceNumber = payment.metadata?.invoiceNumber || paymentId;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Invoice_${invoiceNumber}.pdf"`);
+        res.send(invoiceBuffer);
+      } catch (fileError) {
+        console.error('❌ PAYMENT: Error reading invoice file:', fileError);
+        return res.status(404).json({
+          success: false,
+          message: 'Invoice file not found'
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ PAYMENT: Error downloading invoice:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to download invoice',
+        error: error.message
+      });
+    }
+  },
+
+  // Cancel payment
+  async cancelPayment(req, res) {
+    try {
+      const { paymentId } = req.params;
+      const userId = req.user.id;
+
+      console.log('🔄 PAYMENT: Cancelling payment:', paymentId);
+
+      const result = await paymentService.cancelPayment(paymentId, userId);
+
+      res.status(200).json(result);
+
+    } catch (error) {
+      console.error('❌ PAYMENT: Error cancelling payment:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to cancel payment',
+        error: error.message
+      });
+    }
   }
 };
 

@@ -8,6 +8,22 @@ import { Button } from '@/components/ui/button'
 import { TicketType, Event } from '@/types'
 import TicketTypeSelector from '@/components/events/TicketTypeSelector'
 import { PaymentModal } from '@/components/payment/payment-modal'
+import EventLocationMap from '@/components/events/EventLocationMap'
+import Footer from '@/components/layout/footer'
+
+// Declare snap type for TypeScript
+declare global {
+  interface Window {
+    snap?: {
+      pay: (token: string, options?: {
+        onSuccess?: (result: any) => void
+        onPending?: (result: any) => void
+        onError?: (result: any) => void
+        onClose?: () => void
+      }) => void
+    }
+  }
+}
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -27,6 +43,7 @@ export default function EventDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState<number>(0)
   const [currentPaymentId, setCurrentPaymentId] = useState<string | null>(null)
   const [currentPaymentUrl, setCurrentPaymentUrl] = useState<string | null>(null)
+  const [snapToken, setSnapToken] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -237,15 +254,114 @@ export default function EventDetailPage() {
       })
 
       if (paymentResponse.success) {
-        const payment = paymentResponse.data.payment
+        // Backend returns { success, message, payment } directly, not nested in data
+        const payment = (paymentResponse as any).payment || paymentResponse.data?.payment
+        
+        if (!payment) {
+          console.error('Payment response structure:', paymentResponse)
+          alert(`Gagal membuat payment order: Struktur response tidak valid`)
+          return
+        }
+
         setPaymentAmount(totalAmount)
         setCurrentPaymentId(payment.id)
         setCurrentPaymentUrl(payment.paymentUrl || null)
+        setSnapToken(payment.snapToken || null)
 
-        // If payment has paymentUrl (Midtrans), open payment page in new tab
+        // Check if we're on HTTPS (required for snap.js popup/embed)
+        const isHttps = window.location.protocol === 'https:'
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        
+        // Use redirect URL for localhost (http) to avoid protocol mismatch
+        // Use snap.js popup for HTTPS environments (production/staging)
+        if (isLocalhost || !isHttps) {
+          // Local development: use redirect URL to avoid http/https protocol mismatch
         if (payment.paymentUrl) {
+            console.log('Using redirect URL for localhost/HTTP environment')
+          window.open(payment.paymentUrl, '_blank')
+          } else {
+            console.error('No payment URL available for redirect')
+            alert('Gagal membuka halaman pembayaran. Silakan coba lagi.')
+          }
+        } else if (payment.snapToken) {
+          // HTTPS environment: use snap.js popup (preferred method)
+          console.log('Using snap.js popup for HTTPS environment')
+          
+          // Load snap.js script dynamically
+          const script = document.createElement('script')
+          script.src = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' 
+            ? 'https://app.midtrans.com/snap/snap.js'
+            : 'https://app.sandbox.midtrans.com/snap/snap.js'
+          script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '')
+          script.async = true
+          
+          script.onload = () => {
+            // @ts-ignore - snap is loaded from external script
+            if (window.snap) {
+              // @ts-ignore
+              window.snap.pay(payment.snapToken, {
+                onSuccess: function(result: any) {
+                  console.log('Payment success:', result)
+                  handlePaymentSuccess()
+                },
+                onPending: function(result: any) {
+                  console.log('Payment pending:', result)
+                  // Keep modal open to check status
+                },
+                onError: function(result: any) {
+                  console.error('Payment error:', result)
+                  alert('Pembayaran gagal. Silakan coba lagi.')
+                },
+                onClose: function() {
+                  console.log('Payment popup closed - user cancelled')
+                  // User closed Midtrans popup without payment - cancel payment
+                  if (currentPaymentId) {
+                    ApiService.cancelPayment(currentPaymentId)
+                      .then(() => {
+                        console.log('Payment cancelled after Midtrans popup closed')
+                        // Update UI to show cancelled status
+                        setShowPaymentModal(false)
+                        alert('Pembayaran dibatalkan. Anda dapat mencoba lagi nanti.')
+                      })
+                      .catch((error) => {
+                        console.error('Error cancelling payment:', error)
+                        // Still close modal even if cancel fails
+                        setShowPaymentModal(false)
+                      })
+                  } else {
+                    // No payment ID, just close modal
+                    setShowPaymentModal(false)
+                  }
+                }
+              })
+            } else {
+              console.error('snap.js failed to load, falling back to redirect URL')
+              if (payment.paymentUrl) {
+                window.open(payment.paymentUrl, '_blank')
+              }
+            }
+          }
+          
+          script.onerror = () => {
+            console.error('Failed to load snap.js, falling back to redirect URL')
+            if (payment.paymentUrl) {
+              window.open(payment.paymentUrl, '_blank')
+            }
+          }
+          
+          // Remove existing snap script if any
+          const existingScript = document.querySelector('script[data-client-key]')
+          if (existingScript) {
+            existingScript.remove()
+          }
+          
+          document.body.appendChild(script)
+        } else if (payment.paymentUrl) {
+          // Fallback: open redirect URL if no snapToken
+          console.log('Using redirect URL as fallback')
           window.open(payment.paymentUrl, '_blank')
         }
+        
         // Show payment modal for status checking (will check payment status automatically)
         setShowPaymentModal(true)
       } else {
@@ -421,7 +537,7 @@ export default function EventDetailPage() {
 
       <div className="min-h-screen bg-gray-50">
         {/* Hero Section */}
-        <div className="relative h-[400px] bg-gray-900 overflow-hidden">
+        <div className="relative h-[450px] bg-gray-900 overflow-hidden">
           {/* Background Image with Blur */}
           <div className="absolute inset-0">
             {allImages.length > 0 ? (
@@ -437,14 +553,22 @@ export default function EventDetailPage() {
           </div>
 
           {/* Hero Content */}
-          <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-12">
-            <div className="flex items-center space-x-3 mb-4">
+          <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-16">
+            <div className="flex items-center space-x-3 mb-4 flex-wrap gap-2">
               <span className={`px-3 py-1 text-sm rounded-full font-medium ${eventStatus.color} backdrop-blur-md bg-opacity-90`}>
                 {eventStatus.text}
               </span>
               <span className={`px-3 py-1 text-sm rounded-full font-medium ${availability.color} backdrop-blur-md bg-opacity-90`}>
                 {availability.text}
               </span>
+              {(event as any).generateCertificate && (
+                <span className="px-3 py-1 text-sm rounded-full font-medium bg-amber-100 text-amber-800 backdrop-blur-md bg-opacity-90 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                  </svg>
+                  Certificate Available
+                </span>
+              )}
               {!event.isPublished && (
                 <span className="px-3 py-1 text-sm rounded-full font-medium bg-yellow-100 text-yellow-800">
                   Preview Mode
@@ -452,23 +576,23 @@ export default function EventDetailPage() {
               )}
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight shadow-sm">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 leading-tight drop-shadow-lg">
               {event.title}
             </h1>
 
-            <div className="flex items-center text-gray-300 space-x-6">
-              <div className="flex items-center">
+            <div className="flex items-center text-gray-200 space-x-6 flex-wrap gap-3">
+              <div className="flex items-center bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span>{formatDateTime(event.eventDate)}</span>
+                <span className="font-medium">{formatDateTime(event.eventDate)}</span>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>{event.location}</span>
+                <span className="font-medium">{event.location}</span>
               </div>
             </div>
           </div>
@@ -484,14 +608,14 @@ export default function EventDetailPage() {
           </button>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 -mt-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 -mt-12 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-8">
+            <div className="lg:col-span-2 space-y-6">
 
               {/* Image Gallery */}
               {allImages.length > 0 && (
-                <div className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100">
+                <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-100/50">
                   <div className="image-gallery aspect-video relative">
                     {allImages.map((imageUrl, index) => (
                       <img
@@ -562,10 +686,40 @@ export default function EventDetailPage() {
                 </div>
               )}
 
+              {/* Ticket Types Selector (if event has multiple ticket types) */}
+              {event.hasMultipleTicketTypes && ticketTypes.length > 0 && !isRegistered && (
+                <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100/50 fade-in">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="w-1.5 h-10 bg-gradient-to-b from-blue-600 to-blue-500 rounded-full"></div>
+                    <h2 className="text-2xl font-bold text-gray-900">Pilih Tipe Tiket</h2>
+                  </div>
+                  <TicketTypeSelector
+                    ticketTypes={ticketTypes}
+                    selectedTicketTypeId={selectedTicketType?.id}
+                    quantity={selectedQuantity}
+                    onTicketTypeSelect={handleTicketTypeSelect}
+                    disabled={registering || !event.isPublished}
+                  />
+                  {selectedTicketType && (
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">Total Estimasi:</span>
+                        <span className="text-xl font-bold text-blue-600">
+                          {selectedTicketType.isFree ? 'Gratis' : `Rp ${((selectedTicketType.price || 0) * selectedQuantity).toLocaleString('id-ID')}`}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {selectedQuantity} tiket x {selectedTicketType.name}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Event Description */}
-              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 fade-in">
-                <div className="flex items-center space-x-2 mb-6">
-                  <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
+              <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100/50 fade-in">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-1.5 h-10 bg-gradient-to-b from-blue-600 to-blue-500 rounded-full"></div>
                   <h2 className="text-2xl font-bold text-gray-900">Tentang Event</h2>
                 </div>
 
@@ -585,126 +739,27 @@ export default function EventDetailPage() {
                 )}
               </div>
 
-              {/* Event Details Grid */}
-              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 fade-in">
-                <div className="flex items-center space-x-2 mb-6">
-                  <div className="w-1 h-8 bg-blue-600 rounded-full"></div>
-                  <h2 className="text-2xl font-bold text-gray-900">Informasi Lengkap</h2>
+              {/* Event Location Map */}
+              <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100/50 fade-in">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-1.5 h-10 bg-gradient-to-b from-blue-600 to-blue-500 rounded-full"></div>
+                  <h2 className="text-2xl font-bold text-gray-900">Lokasi Event</h2>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Tanggal</p>
-                      <p className="text-lg font-semibold text-gray-900">{formatDateTime(event.eventDate)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Waktu</p>
-                      <p className="text-lg font-semibold text-gray-900">{formatTime(event.eventTime)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Lokasi</p>
-                      <p className="text-lg font-semibold text-gray-900">{event.location}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Peserta</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {event.registeredCount || 0} <span className="text-gray-400 text-base font-normal">/ {event.maxParticipants || 0}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Deadline</p>
-                      <p className="text-lg font-semibold text-gray-900">{formatDateTime(event.registrationDeadline)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Kategori</p>
-                      <p className="text-lg font-semibold text-gray-900">{event.category}</p>
-                    </div>
-                  </div>
-                </div>
+                <EventLocationMap
+                  location={event.location}
+                  latitude={event.latitude}
+                  longitude={event.longitude}
+                  address={event.address}
+                  city={event.city}
+                  province={event.province}
+                />
               </div>
             </div>
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Ticket Types Selector (if event has multiple ticket types) */}
-              {event.hasMultipleTicketTypes && ticketTypes.length > 0 && !isRegistered && (
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 fade-in">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
-                    <h3 className="text-lg font-bold text-gray-900">Pilih Tipe Tiket</h3>
-                  </div>
-                  <TicketTypeSelector
-                    ticketTypes={ticketTypes}
-                    selectedTicketTypeId={selectedTicketType?.id}
-                    quantity={selectedQuantity}
-                    onTicketTypeSelect={handleTicketTypeSelect}
-                    disabled={registering || !event.isPublished}
-                  />
-                  {selectedTicketType && (
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">Total:</span>
-                        <span className="text-lg font-bold text-blue-600">
-                          {selectedTicketType.isFree ? 'Gratis' : `Rp ${((selectedTicketType.price || 0) * selectedQuantity).toLocaleString('id-ID')}`}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {selectedQuantity} x {selectedTicketType.name}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Booking Summary */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 fade-in sticky top-24">
+              <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100/50 fade-in sticky top-6 z-10">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Ringkasan Pesanan</h3>
 
                 {event.hasMultipleTicketTypes && !selectedTicketType ? (
@@ -814,12 +869,93 @@ export default function EventDetailPage() {
                 )}
               </div>
 
+              {/* Informasi Lengkap */}
+              <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100/50 fade-in">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Informasi Lengkap</h3>
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-gray-600 mt-0.5">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Tanggal</p>
+                      <p className="text-sm font-semibold text-gray-900">{formatDateTime(event.eventDate)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-gray-600 mt-0.5">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Waktu</p>
+                      <p className="text-sm font-semibold text-gray-900">{formatTime(event.eventTime)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-gray-600 mt-0.5">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Lokasi</p>
+                      <p className="text-sm font-semibold text-gray-900">{event.location}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-gray-600 mt-0.5">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Peserta</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {event.registeredCount || 0} <span className="text-gray-500 font-normal">/ {event.maxParticipants || 0}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-gray-600 mt-0.5">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Deadline</p>
+                      <p className="text-sm font-semibold text-gray-900">{formatDateTime(event.registrationDeadline)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-gray-600 mt-0.5">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Kategori</p>
+                      <p className="text-sm font-semibold text-gray-900">{event.category}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Organizer Info */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 fade-in">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Penyelenggara</h3>
+              <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100/50 fade-in">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Penyelenggara</h3>
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
@@ -831,8 +967,8 @@ export default function EventDetailPage() {
               </div>
 
               {/* Event Info */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 fade-in">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Informasi Event</h3>
+              <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100/50 fade-in">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Informasi Event</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Dibuat</span>
@@ -863,65 +999,7 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-50 border-t border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-            {/* Company Info */}
-            <div className="md:col-span-2">
-              <div className="mb-4">
-                <span className="text-xl font-semibold text-gray-900">Event Management</span>
-              </div>
-              <p className="text-gray-600 mb-6 max-w-md">
-                Platform manajemen event paling canggih untuk tim modern. Buat, kelola, dan skalakan event dengan tools yang dirancang untuk dunia modern.
-              </p>
-              <div className="flex space-x-4">
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">📧</a>
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">🐦</a>
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">💼</a>
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">📱</a>
-              </div>
-            </div>
-
-            {/* Product Links */}
-            <div>
-              <h6 className="text-sm font-semibold text-gray-900 mb-4">Produk</h6>
-              <div className="space-y-3">
-                <a href="/events" className="block text-gray-600 hover:text-gray-900 transition-colors">Lihat Event</a>
-                <a href="/contact" className="block text-gray-600 hover:text-gray-900 transition-colors">Kontak</a>
-                <a href="/login" className="block text-gray-600 hover:text-gray-900 transition-colors">Masuk</a>
-                <a href="/register" className="block text-gray-600 hover:text-gray-900 transition-colors">Daftar</a>
-              </div>
-            </div>
-
-            {/* Company Links */}
-            <div>
-              <h6 className="text-sm font-semibold text-gray-900 mb-4">Perusahaan</h6>
-              <div className="space-y-3">
-                <a href="/about" className="block text-gray-600 hover:text-gray-900 transition-colors">Tentang</a>
-                <a href="/contact" className="block text-gray-600 hover:text-gray-900 transition-colors">Kontak</a>
-                <a href="/careers" className="block text-gray-600 hover:text-gray-900 transition-colors">Karir</a>
-                <a href="/blog" className="block text-gray-600 hover:text-gray-900 transition-colors">Blog</a>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Footer */}
-          <div className="border-t border-gray-200 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="text-gray-600 text-sm mb-4 md:mb-0">
-                © 2025 Event Management System. All rights reserved.
-              </div>
-              <div className="flex space-x-6 text-sm">
-                <a href="/privacy" className="text-gray-600 hover:text-gray-900 transition-colors">Privasi</a>
-                <a href="/terms" className="text-gray-600 hover:text-gray-900 transition-colors">Syarat</a>
-                <a href="/cookies" className="text-gray-600 hover:text-gray-900 transition-colors">Cookies</a>
-                <a href="/security" className="text-gray-600 hover:text-gray-900 transition-colors">Keamanan</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Payment Modal */}
       {showPaymentModal && currentPaymentId && (
@@ -931,6 +1009,7 @@ export default function EventDetailPage() {
             setShowPaymentModal(false)
             setCurrentPaymentId(null)
             setCurrentPaymentUrl(null)
+            setSnapToken(null)
           }}
           eventTitle={event?.title || ''}
           eventPrice={paymentAmount}

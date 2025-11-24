@@ -32,14 +32,17 @@ router.get('/admin/attendance/:id', authenticate, requireAdmin, validateUUID('id
 
 // Protected routes - Organizer only (MUST be before /:id routes)
 router.get('/organizer', authenticate, requireVerifiedOrganizer, validatePagination, eventController.getOrganizerEvents);
-router.get('/organizer/:id', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.getOrganizerEventById);
-router.put('/organizer/:id', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.updateOrganizerEvent);
-router.post('/organizer/check-in', authenticate, requireVerifiedOrganizer, validateAdminCheckIn, eventController.organizerCheckIn);
-router.post('/organizer/detect-event', authenticate, requireVerifiedOrganizer, eventController.detectOrganizerEventFromToken);
+// More specific routes first (with sub-paths)
 router.get('/organizer/attendance/:id', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.getOrganizerEventAttendance);
 router.get('/organizer/export/attendance/:id', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.exportOrganizerEventAttendance);
 router.get('/organizer/export/registrations/:id', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.exportOrganizerEventRegistrations);
+router.get('/organizer/:id/analytics', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.getOrganizerEventAnalytics);
+// Less specific routes after
+router.get('/organizer/:id', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.getOrganizerEventById);
+router.put('/organizer/:id', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.updateOrganizerEvent);
 router.patch('/organizer/:id/publish', authenticate, requireVerifiedOrganizer, validateUUID('id'), eventController.publishOrganizerEvent);
+router.post('/organizer/check-in', authenticate, requireVerifiedOrganizer, validateAdminCheckIn, eventController.organizerCheckIn);
+router.post('/organizer/detect-event', authenticate, requireVerifiedOrganizer, eventController.detectOrganizerEventFromToken);
 
 // Protected routes - Participant only (specific routes first)
 router.post('/scan-qr', authenticate, requireParticipant, validateQRCode, eventController.scanQRCode);

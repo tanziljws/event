@@ -134,7 +134,7 @@ class DepartmentService {
           where: { department }
         }),
         prisma.user.count({
-          where: { 
+          where: {
             department,
             lastActivity: {
               gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
@@ -145,25 +145,25 @@ class DepartmentService {
           where: { department }
         }),
         prisma.departmentTicket.count({
-          where: { 
+          where: {
             department,
             status: 'OPEN'
           }
         }),
         prisma.departmentTicket.count({
-          where: { 
+          where: {
             department,
             status: 'IN_PROGRESS'
           }
         }),
         prisma.departmentTicket.count({
-          where: { 
+          where: {
             department,
             status: 'RESOLVED'
           }
         }),
         prisma.departmentTicket.count({
-          where: { 
+          where: {
             department,
             status: { in: ['OPEN', 'IN_PROGRESS'] },
             dueDate: { lt: new Date() }
@@ -266,7 +266,7 @@ class DepartmentService {
       // Calculate resolution rates for each agent
       Object.keys(agentStats).forEach(agentId => {
         const agent = agentStats[agentId];
-        agent.resolutionRate = agent.totalTickets > 0 ? 
+        agent.resolutionRate = agent.totalTickets > 0 ?
           Math.round((agent.resolvedTickets / agent.totalTickets) * 100) : 0;
       });
 
@@ -332,7 +332,7 @@ class DepartmentService {
       const agents = await prisma.user.findMany({
         where: {
           department,
-          role: { in: ['CS_AGENT', 'OPS_AGENT', 'FINANCE_AGENT', 'CS_SENIOR_AGENT', 'OPS_SENIOR_AGENT', 'FINANCE_SENIOR_AGENT'] }
+          role: { in: ['CS_AGENT', 'OPS_AGENT', 'FINANCE_AGENT'] }
         },
         select: {
           id: true,

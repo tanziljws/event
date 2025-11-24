@@ -39,14 +39,16 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     // Enhanced error logging
-    console.error('API Error:', {
+    console.error('❌ API Error:', {
       url: originalRequest?.url,
       method: originalRequest?.method,
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
       hasAuth: !!originalRequest?.headers?.Authorization,
-      token: originalRequest?.headers?.Authorization?.substring(0, 20) + '...'
+      token: originalRequest?.headers?.Authorization ? originalRequest.headers.Authorization.substring(0, 20) + '...' : 'NO TOKEN',
+      baseURL: originalRequest?.baseURL,
+      fullURL: originalRequest?.baseURL + originalRequest?.url
     });
 
     if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('refresh-token')) {
@@ -155,6 +157,12 @@ export class ApiService {
 
   static async getProfile(): Promise<ApiResponse> {
     const response = await apiClient.get('/auth/me');
+    return response.data;
+  }
+
+  // Switch role (organizer <-> participant)
+  static async switchRole(targetRole: 'ORGANIZER' | 'PARTICIPANT'): Promise<ApiResponse> {
+    const response = await apiClient.post('/auth/switch-role', { targetRole });
     return response.data;
   }
 
@@ -386,6 +394,11 @@ export class ApiService {
     return response.data;
   }
 
+  static async getOrganizerEventAnalytics(eventId: string): Promise<ApiResponse> {
+    const response = await apiClient.get(`/events/organizer/${eventId}/analytics`);
+    return response.data;
+  }
+
   static async exportEventRegistrations(id: string): Promise<Blob> {
     const response = await apiClient.get(`/admin/events/${id}/export`, {
       responseType: 'blob',
@@ -521,6 +534,165 @@ export class ApiService {
     if (params?.role) searchParams.append('role', params.role);
 
     const response = await apiClient.get(`/admin/users?${searchParams.toString()}`);
+    return response.data;
+  }
+
+  static async deleteAdminUser(id: string): Promise<ApiResponse> {
+    const response = await apiClient.delete(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  static async getAdminUser(id: string): Promise<ApiResponse> {
+    const response = await apiClient.get(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  static async updateAdminUser(id: string, data: {
+    fullName?: string;
+    phoneNumber?: string;
+    role?: string;
+    isEmailVerified?: boolean;
+    address?: string;
+    organizerType?: string;
+    businessName?: string;
+    businessAddress?: string;
+    businessPhone?: string;
+    portfolio?: string;
+    socialMedia?: string;
+  }): Promise<ApiResponse> {
+    const response = await apiClient.put(`/admin/users/${id}`, data);
+    return response.data;
+  }
+
+  // Reset user password (Admin)
+  static async resetUserPassword(id: string, newPassword: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/admin/users/${id}/reset-password`, { newPassword });
+    return response.data;
+  }
+
+  // Suspend/Unsuspend user (Admin)
+  static async suspendUser(id: string, isSuspended: boolean): Promise<ApiResponse> {
+    const response = await apiClient.patch(`/admin/users/${id}/suspend`, { isSuspended });
+    return response.data;
+  }
+
+  // Change user role (Admin)
+  static async changeUserRole(id: string, role: string): Promise<ApiResponse> {
+    const response = await apiClient.patch(`/admin/users/${id}/role`, { role });
+    return response.data;
+  }
+
+  // Get user activity logs
+  static async getUserActivity(id: string, limit?: number): Promise<ApiResponse> {
+    const params = limit ? `?limit=${limit}` : '';
+    const response = await apiClient.get(`/admin/users/${id}/activity${params}`);
+    return response.data;
+  }
+
+  // Get all organizers (Admin)
+  static async getAdminOrganizers(): Promise<ApiResponse> {
+    const response = await apiClient.get('/admin/organizers');
+    return response.data;
+  }
+
+  // Get organizer details (Admin)
+  static async getAdminOrganizer(id: string): Promise<ApiResponse> {
+    const response = await apiClient.get(`/admin/organizers/${id}`);
+    return response.data;
+  }
+
+  // Get all payments (Admin monitoring)
+  static async getAdminPayments(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+  }): Promise<ApiResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.paymentMethod) searchParams.append('paymentMethod', params.paymentMethod);
+    if (params?.startDate) searchParams.append('startDate', params.startDate);
+    if (params?.endDate) searchParams.append('endDate', params.endDate);
+    if (params?.search) searchParams.append('search', params.search);
+
+    const response = await apiClient.get(`/admin/payments?${searchParams.toString()}`);
+    return response.data;
+  }
+
+  // Get payment statistics (Admin)
+  static async getAdminPaymentStats(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<ApiResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.startDate) searchParams.append('startDate', params.startDate);
+    if (params?.endDate) searchParams.append('endDate', params.endDate);
+
+    const response = await apiClient.get(`/admin/payments/stats?${searchParams.toString()}`);
+    return response.data;
+  }
+
+  // Get activity logs (Admin) - Updated to use correct endpoint
+  static async getAdminActivityLogs(params?: {
+    page?: number;
+    limit?: number;
+    userId?: string;
+    action?: string;
+    startDate?: string;
+    endDate?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }): Promise<ApiResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.userId) searchParams.append('userId', params.userId);
+    if (params?.action) searchParams.append('action', params.action);
+    if (params?.startDate) searchParams.append('startDate', params.startDate);
+    if (params?.endDate) searchParams.append('endDate', params.endDate);
+    if (params?.sortBy) searchParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) searchParams.append('sortOrder', params.sortOrder);
+
+    const response = await apiClient.get(`/admin/activity-logs?${searchParams.toString()}`);
+    return response.data;
+  }
+
+  // Homepage Featured Events Management (Public endpoint)
+  static async getHomepageFeaturedEvents(): Promise<ApiResponse> {
+    const response = await apiClient.get('/admin/events/homepage/featured');
+    return response.data;
+  }
+
+  // Public endpoint for homepage featured events (no auth required)
+  static async getPublicHomepageFeaturedEvents(): Promise<ApiResponse> {
+    const response = await apiClient.get('/admin/events/homepage/featured');
+    return response.data;
+  }
+
+  static async setHomepageFeaturedEvents(eventIds: string[]): Promise<ApiResponse> {
+    const response = await apiClient.post('/admin/events/homepage/featured', { eventIds });
+    return response.data;
+  }
+
+  static async getAvailableEventsForHomepage(): Promise<ApiResponse> {
+    const response = await apiClient.get('/admin/events/homepage/available');
+    return response.data;
+  }
+
+  // Get system settings (Admin)
+  static async getSystemSettings(): Promise<ApiResponse> {
+    const response = await apiClient.get('/admin/settings');
+    return response.data;
+  }
+
+  // Update system setting (Admin)
+  static async updateSystemSetting(key: string, value: any, description?: string): Promise<ApiResponse> {
+    const response = await apiClient.put(`/admin/settings/${key}`, { value, description });
     return response.data;
   }
 
@@ -861,6 +1033,14 @@ export class ApiService {
     return response.data;
   }
 
+  // Bulk generate certificates for an event (Admin/Organizer)
+  static async bulkGenerateCertificates(eventId: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/certificates/bulk-generate/${eventId}`);
+    return response.data;
+  }
+
+  // ==================== CERTIFICATE TEMPLATES ====================
+
   // ==================== CERTIFICATE TEMPLATES ====================
 
   // Get certificate templates for events
@@ -1031,6 +1211,30 @@ export class ApiService {
     return response.data;
   }
 
+  // Cancel payment
+  static async cancelPayment(paymentId: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/payments/${paymentId}/cancel`);
+    return response.data;
+  }
+
+  // Get payment by order ID
+  static async getPaymentByOrderId(orderId: string): Promise<ApiResponse> {
+    const response = await apiClient.get(`/payments/order/${orderId}`);
+    return response.data;
+  }
+
+  // Trigger registration manually (for localhost/development)
+  static async triggerRegistration(paymentId: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/payments/${paymentId}/trigger-registration`);
+    return response.data;
+  }
+
+  // Sync payment status with Midtrans (for localhost/development)
+  static async syncPaymentStatus(orderId: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/payments/order/${orderId}/sync`);
+    return response.data;
+  }
+
   // Verify payment
   static async verifyPayment(paymentId: string): Promise<ApiResponse> {
     const response = await apiClient.post(`/payments/${paymentId}/verify`);
@@ -1048,7 +1252,7 @@ export class ApiService {
   // Upload single image (for thumbnail)
   static async uploadSingleImage(file: File): Promise<ApiResponse> {
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('file', file); // Changed from 'image' to 'file' to match backend
 
     const response = await apiClient.post('/upload/single', formData, {
       headers: {
@@ -1651,6 +1855,185 @@ export class ApiService {
     return response.data;
   }
 
+  // Notification APIs
+  static async getNotifications(params?: { page?: number; limit?: number; type?: string; unreadOnly?: boolean }): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params as Record<string, string>).toString();
+    const response = await apiClient.get(`/notifications${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  }
+
+  static async getUnreadCount(): Promise<ApiResponse> {
+    const response = await apiClient.get('/notifications/unread-count');
+    return response.data;
+  }
+
+  static async markNotificationAsRead(notificationId: string): Promise<ApiResponse> {
+    const response = await apiClient.patch(`/notifications/${notificationId}/read`);
+    return response.data;
+  }
+
+  static async markAllNotificationsAsRead(): Promise<ApiResponse> {
+    const response = await apiClient.patch('/notifications/mark-all-read');
+    return response.data;
+  }
+
+  static async deleteNotification(notificationId: string): Promise<ApiResponse> {
+    const response = await apiClient.delete(`/notifications/${notificationId}`);
+    return response.data;
+  }
+
+  static async deleteAllNotifications(): Promise<ApiResponse> {
+    const response = await apiClient.delete('/notifications');
+    return response.data;
+  }
+
+  // Balance APIs
+  static async getBalance(): Promise<ApiResponse> {
+    const response = await apiClient.get('/balance');
+    return response.data;
+  }
+
+  static async getBalanceHistory(params?: { page?: number; limit?: number; type?: string; startDate?: string; endDate?: string }): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params as Record<string, string>).toString();
+    const response = await apiClient.get(`/balance/history${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  }
+
+  static async getBalanceStats(): Promise<ApiResponse> {
+    const response = await apiClient.get('/balance/stats');
+    return response.data;
+  }
+
+  static async exportTransactionHistory(format: 'csv' | 'pdf' = 'csv', params?: { type?: string; startDate?: string; endDate?: string }): Promise<void> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('format', format);
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+    const response = await apiClient.get(`/balance/history/export?${queryParams.toString()}`, {
+      responseType: 'blob',
+    });
+
+    // Create download link
+    const blob = new Blob([response.data], {
+      type: format === 'pdf' ? 'application/pdf' : 'text/csv',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Get filename from Content-Disposition header or generate default
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = `transaction_history_${new Date().toISOString().split('T')[0]}.${format}`;
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  // Payout Account APIs
+  static async getPayoutAccounts(): Promise<ApiResponse> {
+    const response = await apiClient.get('/payout-accounts');
+    return response.data;
+  }
+
+  static async createPayoutAccount(data: {
+    accountType: 'BANK_ACCOUNT' | 'E_WALLET';
+    accountName: string;
+    accountNumber: string;
+    bankCode?: string;
+    eWalletType?: string;
+  }): Promise<ApiResponse> {
+    const response = await apiClient.post('/payout-accounts', data);
+    return response.data;
+  }
+
+  static async updatePayoutAccount(id: string, data: {
+    accountName?: string;
+    accountNumber?: string;
+    bankCode?: string;
+    eWalletType?: string;
+  }): Promise<ApiResponse> {
+    const response = await apiClient.put(`/payout-accounts/${id}`, data);
+    return response.data;
+  }
+
+  static async deletePayoutAccount(id: string): Promise<ApiResponse> {
+    const response = await apiClient.delete(`/payout-accounts/${id}`);
+    return response.data;
+  }
+
+  static async setDefaultPayoutAccount(id: string): Promise<ApiResponse> {
+    const response = await apiClient.patch(`/payout-accounts/${id}/set-default`);
+    return response.data;
+  }
+
+  static async verifyPayoutAccount(id: string): Promise<ApiResponse> {
+    const response = await apiClient.patch(`/payout-accounts/${id}/verify`);
+    return response.data;
+  }
+
+  // Disbursement APIs
+  static async requestPayout(data: {
+    payoutAccountId: string;
+    amount: number;
+  }): Promise<ApiResponse> {
+    console.log('🌐 API Service: requestPayout called with:', data);
+    try {
+      const response = await apiClient.post('/disbursements/request', data);
+      console.log('🌐 API Service: Response received:', response);
+      return response.data;
+    } catch (error: any) {
+      console.error('🌐 API Service: Error in requestPayout:', error);
+      console.error('🌐 API Service: Error response:', error.response);
+      throw error;
+    }
+  }
+
+  static async getDisbursementHistory(params?: { page?: number; limit?: number; status?: string; startDate?: string; endDate?: string }): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params as Record<string, string>).toString();
+    const response = await apiClient.get(`/disbursements${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  }
+
+  static async getDisbursementById(id: string): Promise<ApiResponse> {
+    const response = await apiClient.get(`/disbursements/${id}`);
+    return response.data;
+  }
+
+  static async cancelDisbursement(id: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/disbursements/${id}/cancel`);
+    return response.data;
+  }
+
+  static async retryDisbursement(id: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/disbursements/${id}/retry`);
+    return response.data;
+  }
+
+  static async getFeeEstimate(amount: number): Promise<ApiResponse> {
+    const response = await apiClient.get(`/disbursements/fee/estimate?amount=${amount}`);
+    return response.data;
+  }
+
+  static async getAvailableBanks(): Promise<ApiResponse> {
+    const response = await apiClient.get('/disbursements/banks/available');
+    return response.data;
+  }
+
+  static async getAvailableEWallets(): Promise<ApiResponse> {
+    const response = await apiClient.get('/disbursements/ewallets/available');
+    return response.data;
+  }
 }
 
 export default apiClient;

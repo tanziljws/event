@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/components/ui/loading'
 import { useAuth } from '@/contexts/auth-context'
 import { ApiService } from '@/lib/api'
 import OrganizerLayout from '@/components/layout/organizer-layout'
-import { 
+import {
   BarChart3,
   Calendar,
   Users,
@@ -104,7 +104,7 @@ export default function OrganizerAnalyticsPage() {
         page: 1,
         limit: 100
       })
-      
+
       if (data.success) {
         const eventsData = data.data.events.map((event: any) => ({
           id: event.id,
@@ -119,12 +119,12 @@ export default function OrganizerAnalyticsPage() {
           createdAt: event.createdAt,
           _count: { registrations: event._count.registrations }
         }))
-        
+
         setEvents(eventsData)
-        
+
         // Generate chart data
         generateChartData(eventsData)
-        
+
         // Generate status data
         generateStatusData(eventsData)
       }
@@ -139,21 +139,21 @@ export default function OrganizerAnalyticsPage() {
   const generateChartData = (eventsData: Event[]) => {
     const now = new Date()
     const last6Months = []
-    
+
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const monthName = date.toLocaleDateString('en-US', { month: 'short' })
-      
+
       const monthEvents = eventsData.filter((event) => {
         const eventDate = new Date(event.createdAt)
-        return eventDate.getMonth() === date.getMonth() && 
-               eventDate.getFullYear() === date.getFullYear()
+        return eventDate.getMonth() === date.getMonth() &&
+          eventDate.getFullYear() === date.getFullYear()
       })
-      
-      const monthParticipants = monthEvents.reduce((sum, event) => 
+
+      const monthParticipants = monthEvents.reduce((sum, event) =>
         sum + event._count.registrations, 0
       )
-      
+
       last6Months.push({
         month: monthName,
         events: monthEvents.length,
@@ -161,7 +161,7 @@ export default function OrganizerAnalyticsPage() {
         revenue: 0
       })
     }
-    
+
     setChartData(last6Months)
   }
 
@@ -170,17 +170,17 @@ export default function OrganizerAnalyticsPage() {
       acc[event.status] = (acc[event.status] || 0) + 1
       return acc
     }, {} as Record<string, number>)
-    
+
     const statusData = Object.entries(statusCounts).map(([status, count]) => ({
-      name: status === 'APPROVED' ? 'Published' : 
-            status === 'PENDING' ? 'Pending' : 
-            status === 'DRAFT' ? 'Draft' : status,
+      name: status === 'APPROVED' ? 'Published' :
+        status === 'PENDING' ? 'Pending' :
+          status === 'DRAFT' ? 'Draft' : status,
       value: count,
-      color: status === 'APPROVED' ? '#10B981' : 
-             status === 'PENDING' ? '#F59E0B' : 
-             status === 'DRAFT' ? '#6B7280' : '#9CA3AF'
+      color: status === 'APPROVED' ? '#10B981' :
+        status === 'PENDING' ? '#F59E0B' :
+          status === 'DRAFT' ? '#6B7280' : '#9CA3AF'
     }))
-    
+
     setEventStatusData(statusData)
   }
 
@@ -216,9 +216,9 @@ export default function OrganizerAnalyticsPage() {
       'APPROVED': { color: 'bg-green-100 text-green-800', text: 'Published' },
       'REJECTED': { color: 'bg-red-100 text-red-800', text: 'Rejected' },
     }
-    
+
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig['DRAFT']
-    
+
     return (
       <span className={`px-2 py-1 text-xs rounded-full font-medium ${config.color}`}>
         {config.text}
@@ -433,7 +433,7 @@ export default function OrganizerAnalyticsPage() {
                   const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
                   const startDate = new Date(firstDay)
                   startDate.setDate(startDate.getDate() - firstDay.getDay() + i)
-                  
+
                   const dayEvents = filteredEvents.filter(event => {
                     const eventDate = new Date(event.eventDate)
                     return eventDate.toDateString() === startDate.toDateString()
@@ -445,25 +445,21 @@ export default function OrganizerAnalyticsPage() {
                   return (
                     <div
                       key={i}
-                      className={`min-h-[100px] p-2 border border-gray-200 rounded-lg relative ${
-                        isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                      } ${isToday ? 'ring-2 ring-blue-500' : ''} ${
-                        dayEvents.length > 6 ? 'bg-gradient-to-br from-orange-50 to-red-50 border-orange-200' : ''
-                      }`}
+                      className={`min-h-[100px] p-2 border border-gray-200 rounded-lg relative ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                        } ${isToday ? 'ring-2 ring-blue-500' : ''} ${dayEvents.length > 6 ? 'bg-gradient-to-br from-orange-50 to-red-50 border-orange-200' : ''
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <div className={`text-sm font-medium ${
-                          isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                        }`}>
+                        <div className={`text-sm font-medium ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                          }`}>
                           {startDate.getDate()}
                         </div>
                         {dayEvents.length > 0 && (
-                          <div className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                            dayEvents.length <= 2 ? 'bg-green-100 text-green-700' :
-                            dayEvents.length <= 4 ? 'bg-yellow-100 text-yellow-700' :
-                            dayEvents.length <= 6 ? 'bg-orange-100 text-orange-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
+                          <div className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${dayEvents.length <= 2 ? 'bg-green-100 text-green-700' :
+                              dayEvents.length <= 4 ? 'bg-yellow-100 text-yellow-700' :
+                                dayEvents.length <= 6 ? 'bg-orange-100 text-orange-700' :
+                                  'bg-red-100 text-red-700'
+                            }`}>
                             {dayEvents.length}
                           </div>
                         )}
@@ -485,7 +481,7 @@ export default function OrganizerAnalyticsPage() {
                           </div>
                         ))}
                         {dayEvents.length > 6 && (
-                          <div 
+                          <div
                             className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 hover:bg-gray-100 p-1 rounded"
                             onClick={() => {
                               // Show all events for this day in a modal
@@ -512,36 +508,47 @@ export default function OrganizerAnalyticsPage() {
 
         {/* Table View */}
         {viewMode === 'table' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Event Performance Table</CardTitle>
-              <CardDescription>Detailed statistics in table format</CardDescription>
+          <Card className="border-0 shadow-lg bg-white overflow-hidden">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-slate-800">Event Performance Table</CardTitle>
+                  <CardDescription>Detailed statistics and performance metrics</CardDescription>
+                </div>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Event</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Participants</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Rate</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="text-left py-3 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wider">Event</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Participants</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Fill Rate</th>
+                      <th className="text-right py-3 px-6 text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {filteredEvents.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-12">
-                          <BarChart3 className="mx-auto h-12 w-12 text-gray-400" />
-                          <h3 className="mt-2 text-sm font-medium text-gray-900">No events found</h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                            {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all'
-                              ? 'Try adjusting your filters to see more events.'
-                              : 'Get started by creating your first event.'
-                            }
-                          </p>
+                        <td colSpan={6} className="text-center py-16">
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                              <BarChart3 className="h-8 w-8 text-slate-400" />
+                            </div>
+                            <h3 className="text-base font-medium text-slate-900 mb-1">No events found</h3>
+                            <p className="text-sm text-slate-500 max-w-sm">
+                              {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all'
+                                ? 'Try adjusting your filters to see more events.'
+                                : 'Get started by creating your first event.'}
+                            </p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
@@ -551,35 +558,60 @@ export default function OrganizerAnalyticsPage() {
                           : '0'
 
                         return (
-                          <tr key={event.id} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-4 px-4">
-                              <div>
-                                <div className="font-medium text-gray-900">{event.title}</div>
-                                <div className="text-sm text-gray-500">{event.location}</div>
-                                <div className="text-xs text-blue-600">{event.category}</div>
+                          <tr key={event.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="py-4 px-6">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                  <Calendar className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-medium text-slate-900 truncate">{event.title}</div>
+                                  <div className="text-sm text-slate-500 truncate">{event.location}</div>
+                                  <div className="mt-1">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                                      {event.category}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="text-sm text-gray-900">{formatDate(event.eventDate)}</div>
+                              <div className="text-sm font-medium text-slate-900">{formatDate(event.eventDate)}</div>
                             </td>
                             <td className="py-4 px-4">
                               {getStatusBadge(event.status)}
                             </td>
                             <td className="py-4 px-4">
-                              <div className="text-sm">
-                                <span className="font-medium text-gray-900">{event._count.registrations}</span>
-                                <span className="text-gray-500">/{event.maxParticipants}</span>
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm">
+                                  <span className="font-semibold text-slate-900">{event._count.registrations}</span>
+                                  <span className="text-slate-400 mx-1">/</span>
+                                  <span className="text-slate-600">{event.maxParticipants}</span>
+                                </div>
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">{registrationRate}%</div>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-slate-100 rounded-full h-2 max-w-[100px]">
+                                  <div
+                                    className={`h-2 rounded-full transition-all ${parseFloat(registrationRate) >= 80 ? 'bg-green-500' :
+                                        parseFloat(registrationRate) >= 50 ? 'bg-blue-500' :
+                                          parseFloat(registrationRate) >= 25 ? 'bg-yellow-500' :
+                                            'bg-slate-300'
+                                      }`}
+                                    style={{ width: `${registrationRate}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm font-medium text-slate-900 min-w-[45px]">{registrationRate}%</span>
+                              </div>
                             </td>
-                            <td className="py-4 px-4">
-                              <div className="flex space-x-2">
+                            <td className="py-4 px-6">
+                              <div className="flex items-center justify-end gap-1">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => router.push(`/organizer/attendance?eventId=${event.id}`)}
+                                  className="h-8 w-8 p-0"
                                 >
                                   <Users className="h-4 w-4" />
                                 </Button>
@@ -587,8 +619,17 @@ export default function OrganizerAnalyticsPage() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => router.push(`/events/${event.id}`)}
+                                  className="h-8 w-8 p-0"
                                 >
                                   <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => router.push(`/organizer/events/${event.id}/edit`)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                               </div>
                             </td>
@@ -617,7 +658,7 @@ export default function OrganizerAnalyticsPage() {
                   ×
                 </Button>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -692,11 +733,11 @@ export default function OrganizerAnalyticsPage() {
             <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Events on {selectedDate.toLocaleDateString('id-ID', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+                  Events on {selectedDate.toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                   })}
                 </h3>
                 <Button
@@ -710,7 +751,7 @@ export default function OrganizerAnalyticsPage() {
                   ×
                 </Button>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedDayEvents.map((event) => {
                   const registrationRate = event.maxParticipants > 0
@@ -736,7 +777,7 @@ export default function OrganizerAnalyticsPage() {
                           {getStatusBadge(event.status)}
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         <div className="text-center p-2 bg-blue-50 rounded">
                           <div className="text-lg font-bold text-blue-900">{event._count.registrations}</div>

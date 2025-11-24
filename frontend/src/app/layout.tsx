@@ -28,7 +28,7 @@ export default function RootLayout({
       <head>
         <meta name="referrer" content="no-referrer-when-downgrade" />
         <meta name="referrer" content="unsafe-url" />
-        <meta httpEquiv="Content-Security-Policy" content="frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; object-src 'none';" />
+        <meta httpEquiv="Content-Security-Policy" content="frame-src 'self' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://app.sandbox.midtrans.com https://app.midtrans.com; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://app.sandbox.midtrans.com https://app.midtrans.com; object-src 'none';" />
         {/* Optimized font loading - only preconnect, fonts loaded via next/font */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

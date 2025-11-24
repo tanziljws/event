@@ -396,7 +396,7 @@ model Refund {
 
 model EventsHeader {
   id          String   @id @default(uuid())
-  videoUrl    String   @map("video_url")
+  bannerUrl   String   @map("banner_url")
   title       String
   subtitle    String
   description String

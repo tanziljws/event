@@ -32,5 +32,6 @@ router.post('/reset-password', passwordResetRateLimit, validatePasswordReset, au
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getMe);
 router.put('/profile', authenticate, authController.updateProfile);
+router.post('/switch-role', authenticate, authController.switchRole);
 
 module.exports = router;

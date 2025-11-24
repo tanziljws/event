@@ -13,6 +13,7 @@ import { formatDateTime } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/navbar'
 import Link from 'next/link'
+import Footer from '@/components/layout/footer'
 
 export default function MyCertificatesPage() {
   const [certificates, setCertificates] = useState<Certificate[]>([])
@@ -427,65 +428,7 @@ export default function MyCertificatesPage() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-50 border-t border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-            {/* Company Info */}
-            <div className="md:col-span-2">
-              <div className="mb-4">
-                <span className="text-xl font-semibold text-gray-900">Event Management</span>
-              </div>
-              <p className="text-gray-600 mb-6 max-w-md">
-                Platform manajemen event paling canggih untuk tim modern. Buat, kelola, dan skalakan event dengan tools yang dirancang untuk dunia modern.
-              </p>
-              <div className="flex space-x-4">
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">📧</a>
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">🐦</a>
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">💼</a>
-                <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">📱</a>
-              </div>
-            </div>
-
-            {/* Product Links */}
-            <div>
-              <h6 className="text-sm font-semibold text-gray-900 mb-4">Produk</h6>
-              <div className="space-y-3">
-                <Link href="/events" className="block text-gray-600 hover:text-gray-900 transition-colors">Lihat Event</Link>
-                <Link href="/contact" className="block text-gray-600 hover:text-gray-900 transition-colors">Kontak</Link>
-                <Link href="/login" className="block text-gray-600 hover:text-gray-900 transition-colors">Masuk</Link>
-                <Link href="/register" className="block text-gray-600 hover:text-gray-900 transition-colors">Daftar</Link>
-              </div>
-            </div>
-
-            {/* Company Links */}
-            <div>
-              <h6 className="text-sm font-semibold text-gray-900 mb-4">Perusahaan</h6>
-              <div className="space-y-3">
-                <Link href="/about" className="block text-gray-600 hover:text-gray-900 transition-colors">Tentang</Link>
-                <Link href="/contact" className="block text-gray-600 hover:text-gray-900 transition-colors">Kontak</Link>
-                <Link href="/careers" className="block text-gray-600 hover:text-gray-900 transition-colors">Karir</Link>
-                <Link href="/blog" className="block text-gray-600 hover:text-gray-900 transition-colors">Blog</Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Footer */}
-          <div className="border-t border-gray-200 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="text-gray-600 text-sm mb-4 md:mb-0">
-                © 2025 Event Management System. All rights reserved.
-              </div>
-              <div className="flex space-x-6 text-sm">
-                <Link href="/privacy" className="text-gray-600 hover:text-gray-900 transition-colors">Privasi</Link>
-                <Link href="/terms" className="text-gray-600 hover:text-gray-900 transition-colors">Syarat</Link>
-                <Link href="/cookies" className="text-gray-600 hover:text-gray-900 transition-colors">Cookies</Link>
-                <Link href="/security" className="text-gray-600 hover:text-gray-900 transition-colors">Keamanan</Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

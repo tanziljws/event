@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const Notification = require('../models/Notification');
+const notificationService = require('../services/notificationService');
 const { authenticate } = require('../middlewares/auth');
 const { validateUUID } = require('../middlewares/validation');
+const { prisma } = require('../config/database');
 const logger = require('../config/logger');
 
 // Get user's notifications
@@ -12,31 +13,32 @@ router.get('/', authenticate, async (req, res) => {
       page = 1,
       limit = 20,
       type,
-      isRead,
-      search,
+      unreadOnly = false,
     } = req.query;
 
-    const result = await Notification.findByUserId(req.user.id, {
-      page: parseInt(page),
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const result = await notificationService.getUserNotifications(req.user.id, {
       limit: parseInt(limit),
-      type,
-      isRead: isRead === 'true' ? true : isRead === 'false' ? false : undefined,
-      search,
+      offset,
+      unreadOnly: unreadOnly === 'true',
+      type: type || null,
     });
+
+    const unreadCount = await notificationService.getUnreadCount(req.user.id);
 
     res.json({
       success: true,
       data: {
-        notifications: result.notifications.map(n => n.toJSON()),
+        notifications: result.notifications,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
           total: result.total,
           pages: Math.ceil(result.total / parseInt(limit)),
         },
-        unreadCount: result.unreadCount,
+        unreadCount,
         hasMore: result.hasMore,
-        currentPage: result.currentPage,
       },
     });
   } catch (error) {
@@ -52,7 +54,7 @@ router.get('/', authenticate, async (req, res) => {
 // Get unread count
 router.get('/unread-count', authenticate, async (req, res) => {
   try {
-    const unreadCount = await Notification.getUnreadCount(req.user.id);
+    const unreadCount = await notificationService.getUnreadCount(req.user.id);
 
     res.json({
       success: true,
@@ -73,21 +75,23 @@ router.get('/unread-count', authenticate, async (req, res) => {
 // Mark notification as read
 router.patch('/:id/read', authenticate, validateUUID, async (req, res) => {
   try {
-    const notification = await Notification.findById(req.params.id);
-    
-    if (!notification || notification.userId !== req.user.id) {
+    await notificationService.markAsRead(req.params.id, req.user.id);
+
+    const notification = await prisma.notification.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!notification) {
       return res.status(404).json({
         success: false,
         message: 'Notification not found',
       });
     }
 
-    await notification.markAsRead();
-
     res.json({
       success: true,
       data: {
-        notification: notification.toJSON(),
+        notification,
       },
     });
   } catch (error) {
@@ -103,7 +107,7 @@ router.patch('/:id/read', authenticate, validateUUID, async (req, res) => {
 // Mark all notifications as read
 router.patch('/mark-all-read', authenticate, async (req, res) => {
   try {
-    await Notification.markAllAsRead(req.user.id);
+    await notificationService.markAllAsRead(req.user.id);
 
     res.json({
       success: true,
@@ -122,8 +126,10 @@ router.patch('/mark-all-read', authenticate, async (req, res) => {
 // Delete notification
 router.delete('/:id', authenticate, validateUUID, async (req, res) => {
   try {
-    const notification = await Notification.findById(req.params.id);
-    
+    const notification = await prisma.notification.findUnique({
+      where: { id: req.params.id },
+    });
+
     if (!notification || notification.userId !== req.user.id) {
       return res.status(404).json({
         success: false,
@@ -131,7 +137,9 @@ router.delete('/:id', authenticate, validateUUID, async (req, res) => {
       });
     }
 
-    await notification.delete();
+    await prisma.notification.delete({
+      where: { id: req.params.id },
+    });
 
     res.json({
       success: true,
@@ -150,7 +158,9 @@ router.delete('/:id', authenticate, validateUUID, async (req, res) => {
 // Delete all notifications
 router.delete('/', authenticate, async (req, res) => {
   try {
-    await Notification.deleteAll(req.user.id);
+    await prisma.notification.deleteMany({
+      where: { userId: req.user.id },
+    });
 
     res.json({
       success: true,

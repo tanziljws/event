@@ -19,6 +19,7 @@ interface AuthContextType {
   resendOtp: (email: string) => Promise<boolean>
   logout: () => Promise<void>
   updateProfile: (data: UpdateProfileForm) => Promise<boolean>
+  switchRole: (targetRole: 'ORGANIZER' | 'PARTICIPANT') => Promise<boolean>
   refreshProfile: () => Promise<void>
   refreshToken: () => Promise<boolean>
   clearSession: () => void
@@ -349,6 +350,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [toast, handleError])
 
+  const switchRole = useCallback(async (targetRole: 'ORGANIZER' | 'PARTICIPANT'): Promise<boolean> => {
+    try {
+      setIsLoading(true)
+      const response = await ApiService.switchRole(targetRole)
+
+      if (response.success && response.data?.user) {
+        setUser(response.data.user)
+        toast({
+          variant: 'success',
+          title: 'Mode Berhasil Diubah',
+          description: `Anda sekarang dalam mode ${targetRole === 'PARTICIPANT' ? 'Peserta' : 'Organizer'}.`,
+        })
+        // Refresh page to update UI
+        window.location.reload()
+        return true
+      }
+      return false
+    } catch (error) {
+      handleError(error, 'Gagal mengubah mode. Silakan coba lagi.')
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }, [toast, handleError])
+
   const refreshProfile = useCallback(async (): Promise<void> => {
     try {
       const response = await ApiService.getProfile()
@@ -373,6 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     resendOtp,
     logout,
     updateProfile,
+    switchRole,
     refreshProfile,
     refreshToken,
     clearSession,

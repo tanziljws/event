@@ -12,8 +12,15 @@ try {
 
 class PaymentGatewayService {
   constructor() {
-    // Midtrans configuration
+    // Midtrans Snap configuration (for creating payments)
     this.midtrans = new midtransClient.Snap({
+      isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
+      serverKey: process.env.MIDTRANS_SERVER_KEY,
+      clientKey: process.env.MIDTRANS_CLIENT_KEY
+    });
+
+    // Midtrans Core API configuration (for checking transaction status)
+    this.midtransCore = new midtransClient.CoreApi({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
       serverKey: process.env.MIDTRANS_SERVER_KEY,
       clientKey: process.env.MIDTRANS_CLIENT_KEY
@@ -133,7 +140,8 @@ class PaymentGatewayService {
   // Verify Midtrans payment
   async verifyMidtransPayment(orderId) {
     try {
-      const response = await this.midtrans.transaction.status(orderId);
+      // Use Core API to check transaction status
+      const response = await this.midtransCore.transaction.status(orderId);
       
       return {
         success: true,

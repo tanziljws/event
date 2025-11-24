@@ -45,6 +45,7 @@
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.517.0",
+    "@getbrevo/brevo": "^3.0.1",
     "@prisma/client": "^5.22.0",
     "@sendgrid/mail": "^8.1.6",
     "@sentry/integrations": "^7.114.0",
@@ -84,7 +85,8 @@
     "sharp": "^0.34.3",
     "uuid": "^13.0.0",
     "winston": "^3.11.0",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "xendit-node": "^7.0.0"
   },
   "devDependencies": {
     "eslint": "^8.54.0",

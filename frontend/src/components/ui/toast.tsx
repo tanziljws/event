@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from "react"
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react"
+import { Check, X, AlertCircle, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface ToastProps {
@@ -40,9 +40,9 @@ const Toast: React.FC<ToastProps> = ({
   }
 
   const icons = {
-    success: CheckCircle,
-    error: XCircle,
-    warning: AlertTriangle,
+    success: Check,
+    error: X,
+    warning: AlertCircle,
     info: Info,
   }
 
@@ -132,7 +132,10 @@ export const useToast = () => {
   if (context === undefined) {
     throw new Error("useToast must be used within a ToastProvider")
   }
-  return context
+  return {
+    ...context,
+    toast: context.addToast,
+  }
 }
 
 export { Toast }

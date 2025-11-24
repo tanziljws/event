@@ -1,5 +1,5 @@
 const { prisma } = require('../config/database');
-const { emailTemplates } = require('../config/email');
+const { emailTemplates } = require('../config/brevoEmail');
 const logger = require('../config/logger');
 const path = require('path');
 const fs = require('fs').promises;

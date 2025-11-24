@@ -323,6 +323,37 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// Switch role (organizer <-> participant)
+const switchRole = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { targetRole } = req.body;
+
+    if (!targetRole || !['ORGANIZER', 'PARTICIPANT'].includes(targetRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid target role. Must be ORGANIZER or PARTICIPANT',
+      });
+    }
+
+    const result = await authService.switchRole(userId, targetRole);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: {
+        user: result.user,
+        currentMode: result.currentMode,
+      },
+    });
+  } catch (error) {
+    logger.error('Switch role error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 module.exports = {
   register,
@@ -337,4 +368,5 @@ module.exports = {
   getMe,
   updateProfile,
   registerOrganizer,
+  switchRole,
 };

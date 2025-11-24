@@ -23,7 +23,8 @@ import {
   Search,
   Upload,
   CheckCircle,
-  Lock
+  Lock,
+  Award
 } from 'lucide-react'
 
 interface Event {
@@ -42,6 +43,7 @@ interface Event {
   isPublished: boolean
   isPrivate?: boolean
   privatePassword?: string
+  generateCertificate?: boolean
   _count: {
     registrations: number
   }
@@ -56,6 +58,7 @@ export default function OrganizerEventsPage() {
   const [showPrivateModal, setShowPrivateModal] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [publishing, setPublishing] = useState<string | null>(null)
+  const [generatingCertificates, setGeneratingCertificates] = useState<string | null>(null)
 
   useEffect(() => {
     // Check authorization
@@ -155,6 +158,31 @@ export default function OrganizerEventsPage() {
     fetchEvents()
   }
 
+  const handleGenerateCertificates = async (eventId: string) => {
+    try {
+      const confirmed = confirm(
+        'Generate certificates untuk semua peserta yang sudah hadir pada event ini?\n\n' +
+        'Ini akan membuat certificate untuk semua peserta yang sudah scan QR code.'
+      )
+
+      if (!confirmed) return
+
+      setGeneratingCertificates(eventId)
+      const response = await ApiService.bulkGenerateCertificates(eventId)
+
+      if (response.success) {
+        alert(`Berhasil! ${response.data.generatedCount || 0} certificate telah dibuat.`)
+      } else {
+        alert(response.message || 'Gagal generate certificates')
+      }
+    } catch (err: any) {
+      console.error('Generate certificates error:', err)
+      alert(err.response?.data?.message || 'Gagal generate certificates')
+    } finally {
+      setGeneratingCertificates(null)
+    }
+  }
+
   if (loading) {
     return (
       <OrganizerLayout>
@@ -233,12 +261,20 @@ export default function OrganizerEventsPage() {
                   <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 flex-1">
                     {event.title}
                   </h3>
-                  {event.isPrivate && (
-                    <div className="ml-2 flex items-center px-2 py-1 rounded-full border border-red-300">
-                      <Lock className="w-3 h-3 mr-1 text-red-600" />
-                      <span className="text-xs font-medium text-red-600">PRIVATE</span>
-                    </div>
-                  )}
+                  <div className="ml-2 flex items-center gap-2">
+                    {event.isPrivate && (
+                      <div className="flex items-center px-2 py-1 rounded-full border border-red-300">
+                        <Lock className="w-3 h-3 mr-1 text-red-600" />
+                        <span className="text-xs font-medium text-red-600">PRIVATE</span>
+                      </div>
+                    )}
+                    {event.generateCertificate && (
+                      <div className="flex items-center px-2 py-1 rounded-full bg-amber-100 border border-amber-300">
+                        <Award className="w-3 h-3 mr-1 text-amber-600" />
+                        <span className="text-xs font-medium text-amber-600">CERTIFICATE</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Event Description */}
@@ -274,66 +310,89 @@ export default function OrganizerEventsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/events/${event.id}`)}
-                    className="flex-1"
-                  >
-                    <Eye className="w-4 h-4 mr-1" />
-                    {event.isPublished ? 'View' : 'Preview'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/organizer/events/${event.id}/edit`)}
-                    disabled={event.isPublished}
-                    className="flex-1"
-                    title={event.isPublished ? "Cannot edit published events" : "Edit event"}
-                  >
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePrivateEventManagement(event)}
-                    className="flex-1"
-                    title="Manage private event settings"
-                  >
-                    <Lock className="w-4 h-4 mr-1" />
-                    {event.isPrivate ? 'Private' : 'Public'}
-                  </Button>
-                  {!event.isPublished && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handlePublishEvent(event.id)}
-                      disabled={publishing === event.id}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      {publishing === event.id ? (
-                        <LoadingSpinner size="sm" />
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-1" />
-                          Publish
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  {event.isPublished && (
+                <div className="flex flex-col space-y-2">
+                  <div className="flex space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled
-                      className="flex-1 bg-green-50 text-green-700 border-green-200"
+                      onClick={() => router.push(`/events/${event.id}`)}
+                      className="flex-1"
                     >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Published
+                      <Eye className="w-4 h-4 mr-1" />
+                      {event.isPublished ? 'View' : 'Preview'}
                     </Button>
-                  )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/organizer/events/${event.id}/edit`)}
+                      disabled={event.isPublished}
+                      className="flex-1"
+                      title={event.isPublished ? "Cannot edit published events" : "Edit event"}
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePrivateEventManagement(event)}
+                      className="flex-1"
+                      title="Manage private event settings"
+                    >
+                      <Lock className="w-4 h-4 mr-1" />
+                      {event.isPrivate ? 'Private' : 'Public'}
+                    </Button>
+                  </div>
+                  <div className="flex space-x-2">
+                    {event.generateCertificate && event.isPublished && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleGenerateCertificates(event.id)}
+                        disabled={generatingCertificates === event.id}
+                        className="flex-1 bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                        title="Generate certificates for all attended participants"
+                      >
+                        {generatingCertificates === event.id ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <>
+                            <Award className="w-4 h-4 mr-1" />
+                            Generate Certificates
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {!event.isPublished && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handlePublishEvent(event.id)}
+                        disabled={publishing === event.id}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {publishing === event.id ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-1" />
+                            Publish
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {event.isPublished && !event.generateCertificate && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled
+                        className="flex-1 bg-green-50 text-green-700 border-green-200"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Published
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

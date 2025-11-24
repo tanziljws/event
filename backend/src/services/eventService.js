@@ -1,5 +1,5 @@
 const { prisma } = require('../config/database');
-const { emailTemplates } = require('../config/email');
+const { emailTemplates } = require('../config/brevoEmail');
 const { generateRegistrationToken } = require('./authService');
 const ticketService = require('./ticketService');
 const logger = require('../config/logger');
@@ -12,11 +12,11 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Radius of the Earth in kilometers
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c; // Distance in kilometers
   return distance;
 };
@@ -24,7 +24,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 // Helper function to convert localhost URLs to Tailscale IP
 const convertImageUrls = (urls) => {
   if (!urls) return urls;
-  
+
   if (Array.isArray(urls)) {
     return urls.map(url => {
       if (typeof url === 'string' && url.includes('localhost:5000')) {
@@ -33,11 +33,11 @@ const convertImageUrls = (urls) => {
       return url;
     });
   }
-  
+
   if (typeof urls === 'string' && urls.includes('localhost:5000')) {
     return urls.replace('localhost:5000', 'localhost:5000');
   }
-  
+
   return urls;
 };
 
@@ -67,7 +67,7 @@ const getAssignedEventIds = async (userId, role) => {
 const getAssignedOrganizerIds = async (userId, role) => {
   // Simulate assignment using user ID hash for consistent distribution
   const allOrganizers = await prisma.user.findMany({
-    where: { 
+    where: {
       role: 'ORGANIZER',
       verificationStatus: 'PENDING'
     },
@@ -98,7 +98,7 @@ const createEvent = async (eventData, creatorId, creatorRole = 'ADMIN') => {
       ticketTypesCount: eventData.ticketTypes?.length || 0,
       ticketTypesData: eventData.ticketTypes
     });
-    
+
     const {
       title,
       eventDate,
@@ -159,6 +159,49 @@ const createEvent = async (eventData, creatorId, creatorRole = 'ADMIN') => {
 
     if (isPrivate && privatePassword && privatePassword.length < 4) {
       throw new Error('Private password must be at least 4 characters long');
+    }
+
+    // Check organizer subscription plan limits (for ORGANIZER role only)
+    if (creatorRole === 'ORGANIZER') {
+      const creator = await prisma.user.findUnique({
+        where: { id: creatorId },
+        select: {
+          id: true,
+          metadata: true,
+        },
+      });
+
+      if (creator && creator.metadata) {
+        const metadata = typeof creator.metadata === 'object' && creator.metadata !== null ? creator.metadata : {};
+        const subscriptionPlan = metadata.subscriptionPlan || 'basic';
+        const planLabel = metadata.planLabel || 'Basic';
+
+        // Check max participants per event for Basic plan
+        if (subscriptionPlan === 'basic' && maxParticipants > 100) {
+          throw new Error(`Paket ${planLabel} hanya mengizinkan maksimal 100 peserta per event. Silakan upgrade ke paket Premium atau Supervisor untuk lebih banyak peserta.`);
+        }
+
+        // Check max events per month for Basic plan
+        if (subscriptionPlan === 'basic') {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+          const eventsThisMonth = await prisma.event.count({
+            where: {
+              createdBy: creatorId,
+              createdAt: {
+                gte: startOfMonth,
+                lte: endOfMonth,
+              },
+            },
+          });
+
+          if (eventsThisMonth >= 5) {
+            throw new Error(`Paket ${planLabel} hanya mengizinkan maksimal 5 event per bulan. Anda telah mencapai batas untuk bulan ini. Silakan upgrade ke paket Premium atau Supervisor untuk event tak terbatas.`);
+          }
+        }
+      }
     }
 
     // Auto-geocode if coordinates are not provided
@@ -232,34 +275,34 @@ const createEvent = async (eventData, creatorId, creatorRole = 'ADMIN') => {
       ticketTypesArray = Object.values(ticketTypes);
       console.log(`🔄 Converted ticketTypes from object to array: ${ticketTypesArray.length} items`);
     }
-    
+
     console.log(`🔍 TICKET TYPE CHECK:`, JSON.stringify({
       hasMultipleTicketTypes,
       ticketTypesIsArray: Array.isArray(ticketTypesArray),
       ticketTypesLength: ticketTypesArray?.length || 0
     }, null, 2));
-    
+
     if (hasMultipleTicketTypes && ticketTypesArray && ticketTypesArray.length > 0) {
       const ticketTypeService = require('./ticketTypeService');
-      
+
       console.log(`✅ Creating ${ticketTypesArray.length} ticket types for event: ${event.id}`);
-      
+
       try {
         for (let i = 0; i < ticketTypesArray.length; i++) {
           const ticketTypeData = {
             ...ticketTypesArray[i],
             sortOrder: i,
           };
-          
+
           console.log(`Creating ticket type ${i + 1}/${ticketTypesArray.length}: ${ticketTypeData.name}`);
-          
+
           await ticketTypeService.createTicketType(
             event.id,
             ticketTypeData,
             creatorId
           );
         }
-        
+
         logger.info(`✅ Successfully created ${ticketTypes.length} ticket types for event: ${event.id}`);
       } catch (ticketError) {
         logger.error(`❌ Error creating ticket types for event ${event.id}:`, ticketError);
@@ -268,7 +311,7 @@ const createEvent = async (eventData, creatorId, creatorRole = 'ADMIN') => {
     } else if (!hasMultipleTicketTypes) {
       // Create default ticket type for single-ticket events
       const ticketTypeService = require('./ticketTypeService');
-      
+
       await ticketTypeService.createTicketType(
         event.id,
         {
@@ -283,7 +326,7 @@ const createEvent = async (eventData, creatorId, creatorRole = 'ADMIN') => {
         },
         creatorId
       );
-      
+
       logger.info(`Created default ticket type for event: ${event.id}`);
     }
 
@@ -390,7 +433,7 @@ const getEvents = async (filters = {}) => {
       'maxParticipants': 'maxParticipants',
       'updatedAt': 'updatedAt'
     };
-    
+
     // Use a valid field for initial sorting when distance filtering is applied
     if (latitude && longitude && sortBy === 'distance') {
       // Use eventDate for initial sorting, we'll sort by distance later
@@ -405,33 +448,33 @@ const getEvents = async (filters = {}) => {
     let allEvents = [];
     try {
       allEvents = await prisma.event.findMany({
-      where,
-      orderBy,
-      skip: 0, // Get all events for distance calculation
-      take: 1000, // Reasonable limit for distance filtering
-      include: {
-        creator: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
+        where,
+        orderBy,
+        skip: 0, // Get all events for distance calculation
+        take: 1000, // Reasonable limit for distance filtering
+        include: {
+          creator: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+            },
+          },
+          ticketTypes: {
+            where: {
+              isActive: true,
+            },
+            orderBy: {
+              sortOrder: 'asc',
+            },
+          },
+          _count: {
+            select: {
+              registrations: true,
+            },
           },
         },
-        ticketTypes: {
-          where: {
-            isActive: true,
-          },
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-        _count: {
-          select: {
-            registrations: true,
-          },
-        },
-      },
-    });
+      });
     } catch (dbError) {
       logger.error('Database query error in getEvents:', dbError);
       logger.error('Query details:', { where, orderBy });
@@ -444,26 +487,26 @@ const getEvents = async (filters = {}) => {
     if (latitude && longitude) {
       console.log(`🔍 LOCATION FILTER: User location = ${latitude}, ${longitude}, radius = ${radius}km`);
       console.log(`🔍 LOCATION FILTER: Total events before filtering = ${allEvents.length}`);
-      
+
       filteredEvents = allEvents.filter(event => {
         if (!event.latitude || !event.longitude) {
           console.log(`🔍 LOCATION FILTER: Event "${event.title}" has no coordinates`);
           return false;
         }
-        
+
         const distance = calculateDistance(
           parseFloat(latitude),
           parseFloat(longitude),
           parseFloat(event.latitude),
           parseFloat(event.longitude)
         );
-        
+
         const isWithinRadius = distance <= parseFloat(radius);
         console.log(`🔍 LOCATION FILTER: Event "${event.title}" at ${event.latitude}, ${event.longitude} is ${distance.toFixed(2)}km away (${isWithinRadius ? 'WITHIN' : 'OUTSIDE'} radius)`);
-        
+
         return isWithinRadius;
       });
-      
+
       console.log(`🔍 LOCATION FILTER: Events after filtering = ${filteredEvents.length}`);
 
       // Sort by distance if location filtering is applied
@@ -498,7 +541,7 @@ const getEvents = async (filters = {}) => {
       if (!galleryUrls) {
         galleryUrls = [];
       }
-      
+
       // Ensure ticketTypes is always an array
       let ticketTypes = event.ticketTypes;
       if (ticketTypes && !Array.isArray(ticketTypes) && typeof ticketTypes === 'object') {
@@ -507,7 +550,7 @@ const getEvents = async (filters = {}) => {
       if (!ticketTypes) {
         ticketTypes = [];
       }
-      
+
       return {
         ...event,
         thumbnailUrl: convertImageUrls(event.thumbnailUrl),
@@ -543,7 +586,7 @@ const getEvents = async (filters = {}) => {
 const getEventById = async (eventId, includeRegistrations = false) => {
   try {
     const event = await prisma.event.findUnique({
-      where: { 
+      where: {
         id: eventId,
         status: 'APPROVED',  // Only show approved events
         isPublished: true    // Only show published events
@@ -566,17 +609,17 @@ const getEventById = async (eventId, includeRegistrations = false) => {
         },
         registrations: includeRegistrations
           ? {
-              include: {
-                participant: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                    email: true,
-                    phoneNumber: true,
-                  },
+            include: {
+              participant: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                  phoneNumber: true,
                 },
               },
-            }
+            },
+          }
           : false,
         _count: {
           select: {
@@ -611,7 +654,7 @@ const getEventById = async (eventId, includeRegistrations = false) => {
 const getEventByIdWithUserRegistration = async (eventId, userId) => {
   try {
     const event = await prisma.event.findUnique({
-      where: { 
+      where: {
         id: eventId,
         status: 'APPROVED',  // Only show approved events
         isPublished: true    // Only show published events
@@ -674,7 +717,7 @@ const getEventByIdWithUserRegistration = async (eventId, userId) => {
 const getOrganizerEventById = async (eventId, organizerId, includeRegistrations = false) => {
   try {
     const event = await prisma.event.findFirst({
-      where: { 
+      where: {
         id: eventId,
         createdBy: organizerId  // Only organizer's own events
       },
@@ -688,17 +731,17 @@ const getOrganizerEventById = async (eventId, organizerId, includeRegistrations 
         },
         registrations: includeRegistrations
           ? {
-              include: {
-                participant: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                    email: true,
-                    phoneNumber: true,
-                  },
+            include: {
+              participant: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                  phoneNumber: true,
                 },
               },
-            }
+            },
+          }
           : false,
         _count: {
           select: {
@@ -874,7 +917,7 @@ const toggleEventPublish = async (eventId, adminId) => {
 const registerForEvent = async (eventId, participantId, privatePassword) => {
   try {
     logger.info(`Starting registration for event ${eventId}, participant ${participantId}`);
-    
+
     // Use atomic transaction with database-level locking to prevent race conditions
     const result = await prisma.$transaction(async (tx) => {
       // 1. Lock the event row for update to prevent concurrent modifications
@@ -1068,10 +1111,9 @@ const registerForEvent = async (eventId, participantId, privatePassword) => {
 
       // 6. Send registration confirmation email with ticket
       try {
-        const emailService = require('../config/email');
         const ticketUrl = `${process.env.API_BASE_URL.replace('/api', '')}${qrCodeUrl}`;
-        
-        await emailService.emailTemplates.sendRegistrationConfirmation(
+
+        await emailTemplates.sendRegistrationConfirmation(
           result.participantEmail,
           result.eventData,
           result.registrationToken,
@@ -1079,7 +1121,7 @@ const registerForEvent = async (eventId, participantId, privatePassword) => {
           ticketUrl,
           ticketUrl
         );
-        
+
         logger.info(`Registration confirmation email sent to: ${result.participantEmail}`);
       } catch (emailError) {
         // Log email error but don't fail the registration
@@ -1111,7 +1153,7 @@ const registerForEvent = async (eventId, participantId, privatePassword) => {
     // 7. Create notifications for both participant and organizer
     try {
       const notificationService = require('./notificationService');
-      
+
       // Create notification for participant
       await notificationService.createNotification(
         participantId,
@@ -1125,14 +1167,14 @@ const registerForEvent = async (eventId, participantId, privatePassword) => {
           registeredAt: new Date().toISOString()
         }
       );
-      
+
       // Create notification for organizer
       await notificationService.createNewRegistrationNotification(
         result.registration.id,
         eventId,
         participantId
       );
-      
+
       logger.info(`Registration notifications sent to participant ${participantId} and organizer for event: ${eventId}`);
     } catch (notificationError) {
       // Log notification error but don't fail the registration
@@ -1241,7 +1283,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
         console.log('🟠 AUTO-UPDATE: Updating payment status from PENDING to PAID');
         await tx.payment.update({
           where: { id: paymentId },
-          data: { 
+          data: {
             paymentStatus: 'PAID',
             paidAt: new Date()
           }
@@ -1270,13 +1312,13 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
         const existingReg = await tx.eventRegistration.findUnique({
           where: { id: payment.registrationId }
         });
-        
+
         if (existingReg) {
           console.log('✅ Registration already exists for this payment - returning existing registration');
           // Get all registrations for this payment (check by payment metadata registrationIds or by paymentId in registration)
           // Since we store registrationIds in payment.metadata, check that
           const registrationIds = payment.metadata?.registrationIds || [payment.registrationId];
-          
+
           const allRegistrations = await tx.eventRegistration.findMany({
             where: {
               id: {
@@ -1288,11 +1330,11 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
               registeredAt: 'desc'
             }
           });
-          
+
           if (allRegistrations.length > 0) {
             console.log(`✅ Found ${allRegistrations.length} registration(s) for this payment - all registrations already created`);
             const firstReg = allRegistrations[0];
-            
+
             // Get event and participant details
             const eventDetails = await tx.event.findUnique({
               where: { id: eventId },
@@ -1303,7 +1345,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
                 location: true,
               },
             });
-            
+
             const participantDetails = await tx.user.findUnique({
               where: { id: participantId },
               select: {
@@ -1311,7 +1353,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
                 email: true,
               },
             });
-            
+
             // Get ticket type for existing registration
             let existingTicketType = null;
             if (firstReg.ticketTypeId) {
@@ -1341,12 +1383,12 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
                 };
               }
             }
-            
+
             // Format registeredAt as ISO string
             const registeredAtISO = firstReg.registeredAt instanceof Date
               ? firstReg.registeredAt.toISOString()
               : (firstReg.registeredAt?.toString() || new Date().toISOString());
-            
+
             return {
               registration: {
                 id: firstReg.id,
@@ -1393,7 +1435,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
       if (availableCapacity < quantity) {
         throw new Error(`Event only has ${availableCapacity} spot(s) available. Requested: ${quantity}`);
       }
-      
+
       // 4. Verify ticketTypeId and check capacity if ticketTypeId is provided
       if (ticketTypeId) {
         const ticketType = await tx.ticketType.findFirst({
@@ -1418,13 +1460,13 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
           ticketTypeId = null; // Reset to null if not valid
         } else {
           console.log('✅ Ticket type verified:', ticketType.name, ticketType.price, ticketType.color);
-          
+
           // Check ticket type capacity
           const availableTickets = ticketType.capacity - ticketType.soldCount;
           if (availableTickets < quantity) {
             throw new Error(`Ticket type "${ticketType.name}" only has ${availableTickets} ticket(s) available. Requested: ${quantity}`);
           }
-          
+
           // Verify that payment amount matches ticket type price * quantity
           const ticketPrice = parseFloat(ticketType.price?.toString() || '0');
           const expectedAmount = ticketPrice * quantity;
@@ -1435,7 +1477,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
           }
         }
       }
-      
+
       // IMPORTANT: For events with multiple ticket types, we DON'T check for duplicate registration
       // Users can buy multiple tickets with different ticket types OR same ticket type (for quantity)
       // The duplicate check was removed earlier in the function (lines 1172-1193)
@@ -1481,40 +1523,40 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
         });
         console.log(`✅ Updated ticket type soldCount: +${quantity} for ticketTypeId:`, ticketTypeId);
       }
-      
+
       // 8. Create registrations based on quantity
       const registrations = [];
       const registrationIds = [];
-      
+
       for (let i = 0; i < quantity; i++) {
         const registrationToken = generateRegistrationToken();
-      const registrationId = generateRegistrationToken();
-        
-      const registration = await tx.eventRegistration.create({
-        data: {
-          id: registrationId,
-          eventId: eventId,
-          participantId: participantId,
-          registrationToken: registrationToken,
-          hasAttended: false,
-          status: 'ACTIVE',
-          registeredAt: new Date(),
+        const registrationId = generateRegistrationToken();
+
+        const registration = await tx.eventRegistration.create({
+          data: {
+            id: registrationId,
+            eventId: eventId,
+            participantId: participantId,
+            registrationToken: registrationToken,
+            hasAttended: false,
+            status: 'ACTIVE',
+            registeredAt: new Date(),
             ticketTypeId: ticketTypeId || null,
-        }
-      });
-        
+          }
+        });
+
         registrations.push(registration);
         registrationIds.push(registrationId);
         console.log(`✅ Registration ${i + 1}/${quantity} created with ticketTypeId:`, registration.ticketTypeId);
       }
-      
+
       console.log(`✅ Created ${quantity} registration(s) for payment:`, paymentId);
 
       // 5. Update payment with first registration ID (for backward compatibility)
       // All registrations are linked to the same payment via paymentId in metadata
       await tx.payment.update({
         where: { id: paymentId },
-        data: { 
+        data: {
           registrationId: registrationIds[0],
           metadata: {
             ...payment.metadata,
@@ -1522,7 +1564,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
           }
         }
       });
-      
+
       // Use first registration for response (backward compatibility)
       const registration = registrations[0];
 
@@ -1582,7 +1624,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
       const registeredAtISO = registration.registeredAt instanceof Date
         ? registration.registeredAt.toISOString()
         : (registration.registeredAt?.toString() || new Date().toISOString());
-      
+
       return {
         registration: {
           id: registration.id,
@@ -1627,12 +1669,11 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
 
       // 6. Send registration confirmation email with ticket
       try {
-        const emailService = require('../config/email');
         const ticketUrl = `${process.env.API_BASE_URL.replace('/api', '')}${qrCodeUrl}`;
-        
+
         // Only send email if eventData is available
         if (result.eventData && result.eventData?.title) {
-          await emailService.emailTemplates.sendRegistrationConfirmation(
+          await emailTemplates.sendRegistrationConfirmation(
             result.participantEmail,
             result.eventData,
             result.registrationToken,
@@ -1674,7 +1715,7 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
     // 7. Create notifications for both participant and organizer
     try {
       const notificationService = require('./notificationService');
-      
+
       // Create notification for participant
       await notificationService.createNotification(
         participantId,
@@ -1688,14 +1729,14 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
           registeredAt: new Date().toISOString()
         }
       );
-      
+
       // Create notification for organizer
       await notificationService.createNewRegistrationNotification(
         result.registration.id,
         eventId,
         participantId
       );
-      
+
       logger.info(`Registration notifications sent to participant ${participantId} and organizer for event: ${eventId}`);
     } catch (notificationError) {
       // Log notification error but don't fail the registration
@@ -1758,7 +1799,7 @@ const cancelEventRegistration = async (eventId, participantId) => {
     // Check if cancellation deadline has passed (H-3 = 3 days before event)
     const eventDate = new Date(registration.event.eventDate);
     const now = new Date();
-    
+
     // Calculate days difference
     const timeDiff = eventDate.getTime() - now.getTime();
     const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
@@ -2036,7 +2077,7 @@ const scanQRCodeForAttendance = async (qrCodeData, participantId) => {
   try {
     const ticketService = require('./ticketService');
     const result = await ticketService.scanQRCodeForAttendance(qrCodeData, participantId);
-    
+
     // Mark attendance
     const updatedRegistration = await prisma.eventRegistration.update({
       where: { id: result.registration.id },
@@ -2078,7 +2119,7 @@ const adminCheckIn = async (eventId, qrCodeData, adminId) => {
   try {
     const ticketService = require('./ticketService');
     const result = await ticketService.adminScanQRCode(qrCodeData, eventId);
-    
+
     // Mark attendance
     const updatedRegistration = await prisma.eventRegistration.update({
       where: { id: result.registration.id },
@@ -2323,7 +2364,7 @@ const getEventsForReview = async (filters = {}, userRole = null, userId = null) 
       const opsTeam = await prisma.user.findMany({
         where: {
           role: {
-            in: ['OPS_AGENT', 'OPS_SENIOR_AGENT', 'OPS_HEAD']
+            in: ['OPS_AGENT', 'OPS_HEAD']
           }
         },
         select: { id: true, role: true },
@@ -2442,34 +2483,49 @@ const calculateEventRevenue = async (eventId) => {
     });
 
     // Create or update organizer revenue record
-    await prisma.organizerRevenue.upsert({
+    // First, try to find existing record
+    let organizerRevenueRecord = await prisma.organizerRevenue.findFirst({
       where: {
-        organizerId_eventId: {
-          organizerId: event.createdBy,
-          eventId: event.id,
-        },
-      },
-      update: {
-        totalRevenue,
-        platformFee: platformFeeTotal,
-        organizerAmount: organizerRevenue,
-        feePercentage: event.platformFee,
-      },
-      create: {
         organizerId: event.createdBy,
         eventId: event.id,
-        totalRevenue,
-        platformFee: platformFeeTotal,
-        organizerAmount: organizerRevenue,
-        feePercentage: event.platformFee,
       },
     });
+
+    if (organizerRevenueRecord) {
+      // Update existing record
+      organizerRevenueRecord = await prisma.organizerRevenue.update({
+        where: { id: organizerRevenueRecord.id },
+        data: {
+          totalRevenue,
+          platformFee: platformFeeTotal,
+          organizerAmount: organizerRevenue,
+          feePercentage: event.platformFee ? parseFloat(event.platformFee.toString()) : 0,
+        },
+      });
+    } else {
+      // Create new record
+      organizerRevenueRecord = await prisma.organizerRevenue.create({
+        data: {
+          totalRevenue: parseFloat(totalRevenue.toString()),
+          platformFee: parseFloat(platformFeeTotal.toString()),
+          organizerAmount: parseFloat(organizerRevenue.toString()),
+          feePercentage: event.platformFee ? parseFloat(event.platformFee.toString()) : 0,
+          event: {
+            connect: { id: event.id }
+          },
+          organizer: {
+            connect: { id: event.createdBy }
+          }
+        },
+      });
+    }
 
     return {
       totalRevenue,
       platformFee: platformFeeTotal,
       organizerRevenue,
       feePercentage: event.platformFee,
+      organizerRevenueId: organizerRevenueRecord.id, // Return ID for balance transaction
     };
   } catch (error) {
     logger.error('Calculate event revenue error:', error);
@@ -2482,7 +2538,7 @@ const adminCheckInParticipant = async (eventId, qrData, adminId) => {
   try {
     const ticketService = require('./ticketService');
     const result = await ticketService.adminScanQRCode(qrData, eventId);
-    
+
     // Mark attendance
     const updatedRegistration = await prisma.eventRegistration.update({
       where: { id: result.registration.id },
@@ -2547,7 +2603,7 @@ const detectOrganizerEventFromToken = async (token, organizerId) => {
   try {
     // First detect the event from token
     const result = await detectEventFromToken(token);
-    
+
     // Then verify that the organizer owns this event
     const event = await prisma.event.findFirst({
       where: {
@@ -2651,7 +2707,7 @@ const getOrganizerEvents = async (filters, organizerId) => {
       if (!galleryUrls) {
         galleryUrls = [];
       }
-      
+
       let ticketTypes = event.ticketTypes;
       if (ticketTypes && !Array.isArray(ticketTypes) && typeof ticketTypes === 'object') {
         ticketTypes = Object.values(ticketTypes);
@@ -2659,7 +2715,7 @@ const getOrganizerEvents = async (filters, organizerId) => {
       if (!ticketTypes) {
         ticketTypes = [];
       }
-      
+
       return {
         ...event,
         galleryUrls,
@@ -2761,6 +2817,327 @@ const publishOrganizerEvent = async (eventId, organizerId) => {
 };
 
 
+// Get organizer event analytics
+const getOrganizerEventAnalytics = async (eventId, organizerId) => {
+  try {
+    // Verify event belongs to organizer
+    const event = await prisma.event.findFirst({
+      where: {
+        id: eventId,
+        createdBy: organizerId,
+      },
+      include: {
+        registrations: {
+          include: {
+            participant: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+            payments: {
+              where: {
+                paymentStatus: 'PAID',
+              },
+            },
+            ticketType: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+              },
+            },
+          },
+        },
+        ticketTypes: {
+          where: {
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new Error('Event not found or you are not authorized to view this event');
+    }
+
+    // Calculate statistics - only count ACTIVE registrations
+    const activeRegistrations = event.registrations.filter(r => r.status === 'ACTIVE');
+    const totalRegistrations = activeRegistrations.length;
+    const totalAttendance = activeRegistrations.filter(r => r.hasAttended).length;
+    const attendanceRate = totalRegistrations > 0 ? (totalAttendance / totalRegistrations) * 100 : 0;
+
+    // Calculate revenue directly from payments table (more accurate)
+    // This ensures we get ALL payments for this event, not just those linked to registrations
+    const allPayments = await prisma.payment.findMany({
+      where: {
+        eventId: eventId,
+        paymentStatus: 'PAID',
+      },
+      include: {
+        registration: {
+          select: {
+            id: true,
+            ticketTypeId: true,
+            ticketType: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let totalRevenue = 0;
+    let platformFeeTotal = 0;
+    let organizerRevenue = 0;
+
+    allPayments.forEach(payment => {
+      const amount = parseFloat(payment.amount.toString());
+      totalRevenue += amount;
+      const platformFee = (amount * (event.platformFee || 0)) / 100;
+      platformFeeTotal += platformFee;
+      organizerRevenue += amount - platformFee;
+    });
+
+    // Calculate average ticket price based on actual paid payments
+    const averageTicketPrice = allPayments.length > 0 ? totalRevenue / allPayments.length : 0;
+
+    // Generate daily registrations data
+    const dailyRegistrationsMap = new Map();
+    const eventCreatedAt = new Date(event.createdAt);
+
+    // Map payments by date for daily revenue
+    const paymentsByDate = new Map();
+    allPayments.forEach(payment => {
+      // Get payment date from created_at or paid_at
+      const paymentDate = payment.paidAt || payment.createdAt;
+      const dateStr = new Date(paymentDate).toISOString().split('T')[0];
+      
+      if (!paymentsByDate.has(dateStr)) {
+        paymentsByDate.set(dateStr, 0);
+      }
+      paymentsByDate.set(dateStr, paymentsByDate.get(dateStr) + parseFloat(payment.amount.toString()));
+    });
+
+    // Only count ACTIVE registrations for daily data
+    activeRegistrations.forEach(registration => {
+      const regDate = new Date(registration.registeredAt);
+      const dateStr = regDate.toISOString().split('T')[0];
+      
+      if (!dailyRegistrationsMap.has(dateStr)) {
+        dailyRegistrationsMap.set(dateStr, {
+          date: dateStr,
+          registrations: 0,
+          revenue: 0,
+        });
+      }
+
+      const dayData = dailyRegistrationsMap.get(dateStr);
+      dayData.registrations += 1;
+    });
+
+    // Add revenue to daily data
+    paymentsByDate.forEach((revenue, dateStr) => {
+      if (dailyRegistrationsMap.has(dateStr)) {
+        dailyRegistrationsMap.get(dateStr).revenue = revenue;
+      } else {
+        // If there's revenue but no registration on that date, still add it
+        dailyRegistrationsMap.set(dateStr, {
+          date: dateStr,
+          registrations: 0,
+          revenue: revenue,
+        });
+      }
+    });
+
+    // Fill in missing dates from event creation to latest registration or payment
+    const latestRegistration = activeRegistrations.length > 0
+      ? activeRegistrations.reduce((latest, r) => {
+          const regDate = new Date(r.registeredAt);
+          return regDate > latest ? regDate : latest;
+        }, new Date(eventCreatedAt))
+      : new Date(eventCreatedAt);
+    
+    // Also check latest payment date
+    const latestPayment = allPayments.length > 0
+      ? allPayments.reduce((latest, p) => {
+          const payDate = p.paidAt ? new Date(p.paidAt) : new Date(p.createdAt);
+          return payDate > latest ? payDate : latest;
+        }, new Date(eventCreatedAt))
+      : new Date(eventCreatedAt);
+    
+    const latestDate = latestPayment > latestRegistration ? latestPayment : latestRegistration;
+    
+    const dailyRegistrations = [];
+    const currentDate = new Date(eventCreatedAt);
+    while (currentDate <= latestDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      dailyRegistrations.push(
+        dailyRegistrationsMap.get(dateStr) || {
+          date: dateStr,
+          registrations: 0,
+          revenue: 0,
+        }
+      );
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Generate attendance data
+    const attendanceData = [
+      {
+        status: 'Present',
+        count: totalAttendance,
+        percentage: attendanceRate,
+      },
+      {
+        status: 'Absent',
+        count: totalRegistrations - totalAttendance,
+        percentage: 100 - attendanceRate,
+      },
+    ];
+
+    // Generate revenue breakdown
+    const revenueBreakdown = [
+      {
+        source: 'Ticket Sales',
+        amount: totalRevenue,
+        percentage: totalRevenue > 0 ? 100 : 0,
+      },
+      {
+        source: 'Platform Fee',
+        amount: platformFeeTotal,
+        percentage: totalRevenue > 0 ? (platformFeeTotal / totalRevenue) * 100 : 0,
+      },
+      {
+        source: 'Organizer Revenue',
+        amount: organizerRevenue,
+        percentage: totalRevenue > 0 ? (organizerRevenue / totalRevenue) * 100 : 0,
+      },
+    ];
+
+    // Calculate ticket type breakdown
+    const ticketTypeBreakdown = [];
+    const ticketTypeStats = new Map();
+
+    // Initialize stats for all ticket types
+    event.ticketTypes.forEach(ticketType => {
+      ticketTypeStats.set(ticketType.id, {
+        id: ticketType.id,
+        name: ticketType.name,
+        price: parseFloat(ticketType.price?.toString() || '0'),
+        isFree: ticketType.isFree || false,
+        color: ticketType.color || '#3B82F6',
+        capacity: ticketType.capacity || 0,
+        sold: 0,
+        revenue: 0,
+        attendance: 0,
+        countedPaymentIds: new Set(), // Track which payment IDs we've already counted
+      });
+    });
+
+    // Calculate stats from registrations
+    activeRegistrations.forEach(registration => {
+      if (registration.ticketType) {
+        const ticketTypeId = registration.ticketType.id;
+        if (ticketTypeStats.has(ticketTypeId)) {
+          const stats = ticketTypeStats.get(ticketTypeId);
+          stats.sold += 1;
+          if (registration.hasAttended) {
+            stats.attendance += 1;
+          }
+          
+          // Calculate revenue from payments for this registration
+          registration.payments.forEach(payment => {
+            const amount = parseFloat(payment.amount.toString());
+            stats.revenue += amount;
+            // Track this payment ID to avoid double counting
+            if (payment.id) {
+              stats.countedPaymentIds.add(payment.id);
+            }
+          });
+        }
+      }
+    });
+
+    // Also calculate revenue from allPayments that are linked to registrations with ticketType
+    // This ensures we capture all payments, even if registration.payments is incomplete
+    allPayments.forEach(payment => {
+      if (payment.registration && payment.registration.ticketType) {
+        const ticketTypeId = payment.registration.ticketType.id;
+        if (ticketTypeStats.has(ticketTypeId)) {
+          const stats = ticketTypeStats.get(ticketTypeId);
+          const amount = parseFloat(payment.amount.toString());
+          // Only add if not already counted from registration.payments
+          if (!stats.countedPaymentIds.has(payment.id)) {
+            stats.revenue += amount;
+            stats.countedPaymentIds.add(payment.id);
+          }
+        }
+      }
+    });
+
+    // Convert map to array and calculate percentages
+    ticketTypeStats.forEach((stats, ticketTypeId) => {
+      const percentage = totalRevenue > 0 ? (stats.revenue / totalRevenue) * 100 : 0;
+      const soldPercentage = stats.capacity > 0 ? (stats.sold / stats.capacity) * 100 : 0;
+      const attendanceRate = stats.sold > 0 ? (stats.attendance / stats.sold) * 100 : 0;
+      
+      // Remove countedPaymentIds Set before returning (not serializable to JSON)
+      const { countedPaymentIds, ...statsWithoutSet } = stats;
+      
+      ticketTypeBreakdown.push({
+        ...statsWithoutSet,
+        percentage,
+        soldPercentage,
+        attendanceRate,
+        available: stats.capacity - stats.sold,
+      });
+    });
+
+    // Sort by revenue (descending)
+    ticketTypeBreakdown.sort((a, b) => b.revenue - a.revenue);
+
+    return {
+      event: {
+        id: event.id,
+        title: event.title,
+        eventDate: event.eventDate,
+        eventTime: event.eventTime,
+        location: event.location,
+        maxParticipants: event.maxParticipants,
+        price: event.price ? parseFloat(event.price.toString()) : 0,
+        isFree: event.isFree,
+        category: event.category,
+        platformFee: event.platformFee ? parseFloat(event.platformFee.toString()) : 0,
+        createdAt: event.createdAt,
+      },
+      stats: {
+        totalRegistrations,
+        totalAttendance,
+        attendanceRate,
+        totalRevenue,
+        averageTicketPrice,
+        platformFee: platformFeeTotal,
+        organizerRevenue,
+        registrationGrowth: 0, // Can be calculated later with historical data
+        attendanceGrowth: 0,
+        revenueGrowth: 0,
+      },
+      dailyRegistrations,
+      attendanceData,
+      revenueBreakdown,
+      ticketTypeBreakdown,
+    };
+  } catch (error) {
+    logger.error('Get organizer event analytics error:', error);
+    throw error;
+  }
+};
+
 // Get event registrations (for organizers)
 const getEventRegistrations = async (eventId, options = {}) => {
   try {
@@ -2826,7 +3203,7 @@ const updateOrganizerEvent = async (eventId, organizerId, eventData) => {
   try {
     // First check if event exists and belongs to organizer
     const existingEvent = await prisma.event.findFirst({
-      where: { 
+      where: {
         id: eventId,
         createdBy: organizerId
       },
@@ -2950,4 +3327,5 @@ module.exports = {
   adminCheckInParticipant,
   organizerCheckInParticipant,
   getEventRegistrations,
+  getOrganizerEventAnalytics,
 };

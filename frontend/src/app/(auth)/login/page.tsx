@@ -169,21 +169,26 @@ export default function LoginPage() {
           <div className="asymmetric-grid" style={{ alignItems: 'center' }}>
             {/* Left Side - Info */}
             <div>
-              <Link href="/" className="interactive" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '3rem' }}>
-                <div style={{ 
-                  width: '2rem', 
-                  height: '2rem', 
-                  background: 'var(--color-primary)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  fontSize: '0.75rem',
-                  fontWeight: '500',
-                  color: 'var(--color-bg)'
-                }}>
-                  E
-                </div>
-                <span style={{ fontSize: '1.1rem', fontWeight: '400', color: 'var(--color-text)' }}>Nusa</span>
+              <Link href="/" className="interactive" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '3rem' }}>
+                <img
+                  src="/logo-nusa.png"
+                  alt="Nusa Logo"
+                  style={{ 
+                    height: '128px', 
+                    width: 'auto', 
+                    maxWidth: '100%', 
+                    objectFit: 'contain',
+                    maxHeight: '128px'
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    if (target.parentElement) {
+                      target.parentElement.innerHTML = '<span style="font-size: 1.5rem; font-weight: 500; color: var(--color-primary)">N</span>';
+                    }
+                  }}
+                />
+                <span style={{ fontSize: '1.5rem', fontWeight: '400', color: 'var(--color-text)' }}>Nusa</span>
               </Link>
 
               <div 

@@ -283,6 +283,262 @@ class EmailService {
       </html>
     `;
   }
+
+  // Generate payout completed email template
+  generatePayoutCompletedEmail(organizerName, amount, accountName, accountNumber, accountType, completedAt) {
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(amount);
+    };
+
+    const accountDisplay = accountType === 'BANK_ACCOUNT' 
+      ? `${accountName} - ${accountNumber}`
+      : `${accountType} - ${accountNumber}`;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Payout Completed</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #10b981; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
+          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+          .amount { font-size: 28px; font-weight: bold; color: #10b981; text-align: center; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Payout Completed</h1>
+            <p>Your payout request has been successfully processed</p>
+          </div>
+          <div class="content">
+            <h2>Hello ${organizerName}!</h2>
+            <p>We're happy to inform you that your payout request has been completed successfully.</p>
+            
+            <div class="info-box">
+              <div class="amount">${formatCurrency(amount)}</div>
+              <p><strong>Account:</strong> ${accountDisplay}</p>
+              <p><strong>Completed at:</strong> ${new Date(completedAt).toLocaleString('id-ID')}</p>
+            </div>
+            
+            <p>The funds have been transferred to your account. Please check your bank or e-wallet to confirm receipt.</p>
+            
+            <p>You can view your transaction history by clicking the link below:</p>
+            <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/organizer/wallet/transactions" 
+                  style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              View Transaction History
+            </a></p>
+            
+            <p>If you have any questions or concerns, please contact our support team.</p>
+            
+            <p>Best regards,<br>Event Management System Team</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  // Generate payout failed email template
+  generatePayoutFailedEmail(organizerName, amount, accountName, failureReason, requestedAt) {
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(amount);
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Payout Failed</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ef4444; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
+          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444; }
+          .amount { font-size: 28px; font-weight: bold; color: #ef4444; text-align: center; margin: 20px 0; }
+          .error-box { background: #fef2f2; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #ef4444; }
+          .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>❌ Payout Failed</h1>
+            <p>Your payout request could not be processed</p>
+          </div>
+          <div class="content">
+            <h2>Hello ${organizerName}!</h2>
+            <p>We're sorry to inform you that your payout request has failed.</p>
+            
+            <div class="info-box">
+              <div class="amount">${formatCurrency(amount)}</div>
+              <p><strong>Account:</strong> ${accountName}</p>
+              <p><strong>Requested at:</strong> ${new Date(requestedAt).toLocaleString('id-ID')}</p>
+            </div>
+            
+            <div class="error-box">
+              <p><strong>Reason:</strong></p>
+              <p>${failureReason || 'Unknown error occurred during processing'}</p>
+            </div>
+            
+            <p><strong>What happens next?</strong></p>
+            <ul>
+              <li>Your balance has been unlocked and is available for withdrawal again</li>
+              <li>You can retry the payout request from your transaction history</li>
+              <li>Please verify your account details are correct</li>
+            </ul>
+            
+            <p>You can retry the payout or view your transaction history by clicking the link below:</p>
+            <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/organizer/wallet/transactions" 
+                  style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              View Transaction History
+            </a></p>
+            
+            <p>If you continue to experience issues, please contact our support team.</p>
+            
+            <p>Best regards,<br>Event Management System Team</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  // Send payout completed notification
+  async sendPayoutCompletedNotification(organizerEmail, organizerName, amount, accountName, accountNumber, accountType, completedAt) {
+    try {
+      const subject = `✅ Payout Completed - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount)}`;
+      const html = this.generatePayoutCompletedEmail(organizerName, amount, accountName, accountNumber, accountType, completedAt);
+      
+      return await this.sendEmail(organizerEmail, subject, html);
+    } catch (error) {
+      logger.error('Error sending payout completed email:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Send payout failed notification
+  async sendPayoutFailedNotification(organizerEmail, organizerName, amount, accountName, failureReason, requestedAt) {
+    try {
+      const subject = `❌ Payout Failed - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount)}`;
+      const html = this.generatePayoutFailedEmail(organizerName, amount, accountName, failureReason, requestedAt);
+      
+      return await this.sendEmail(organizerEmail, subject, html);
+    } catch (error) {
+      logger.error('Error sending payout failed email:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Generate payout requested email template
+  generatePayoutRequestedEmail(organizerName, amount, accountName, accountNumber, accountType, requestedAt) {
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(amount);
+    };
+
+    const accountDisplay = accountType === 'BANK_ACCOUNT' 
+      ? `${accountName} - ${accountNumber}`
+      : `${accountType} - ${accountNumber}`;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Payout Request Received</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #3b82f6; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
+          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6; }
+          .amount { font-size: 28px; font-weight: bold; color: #3b82f6; text-align: center; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>💰 Payout Request Received</h1>
+            <p>Your payout request is being processed</p>
+          </div>
+          <div class="content">
+            <h2>Hello ${organizerName}!</h2>
+            <p>We've received your payout request and it's currently being processed.</p>
+            
+            <div class="info-box">
+              <div class="amount">${formatCurrency(amount)}</div>
+              <p><strong>Account:</strong> ${accountDisplay}</p>
+              <p><strong>Requested at:</strong> ${new Date(requestedAt).toLocaleString('id-ID')}</p>
+            </div>
+            
+            <p><strong>What happens next?</strong></p>
+            <ul>
+              <li>Your balance has been locked for this payout</li>
+              <li>We're processing the transfer to your account</li>
+              <li>Processing usually takes 1-3 business days</li>
+              <li>You'll receive an email notification when it's completed</li>
+            </ul>
+            
+            <p>You can track the status of your payout by clicking the link below:</p>
+            <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/organizer/wallet/transactions" 
+                  style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              View Transaction History
+            </a></p>
+            
+            <p>If you have any questions, please contact our support team.</p>
+            
+            <p>Best regards,<br>Event Management System Team</p>
+          </div>
+          <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  // Send payout requested notification
+  async sendPayoutRequestedNotification(organizerEmail, organizerName, amount, accountName, accountNumber, accountType, requestedAt) {
+    try {
+      const subject = `💰 Payout Request Received - ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount)}`;
+      const html = this.generatePayoutRequestedEmail(organizerName, amount, accountName, accountNumber, accountType, requestedAt);
+      
+      return await this.sendEmail(organizerEmail, subject, html);
+    } catch (error) {
+      logger.error('Error sending payout requested email:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 module.exports = new EmailService();
