@@ -77,7 +77,7 @@ export function PaymentModal({
   const paymentCheckIntervalRef = React.useRef<NodeJS.Timeout | null>(null)
   
   // Base URL for file access
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://web-production-38c7.up.railway.app'
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://backend-nasa.up.railway.app'
 
   useEffect(() => {
     if (isOpen) {

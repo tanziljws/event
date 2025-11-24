@@ -16,7 +16,7 @@ export function getImageUrl(imageUrl: string | null | undefined): string {
   }
 
   // Determine file base URL (strip trailing /api if present)
-  const rawBase = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-38c7.up.railway.app/api';
+  const rawBase = process.env.NEXT_PUBLIC_API_URL || 'https://backend-nasa.up.railway.app/api';
   const fileBase = rawBase.replace(/\/api\/?$/, '');
 
   // Mobile-compatible rules:

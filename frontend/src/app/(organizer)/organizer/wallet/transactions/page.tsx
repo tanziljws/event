@@ -322,8 +322,8 @@ export default function TransactionsPage() {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <Filter className="w-5 h-5 text-gray-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+            <Filter className="w-5 h-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
             </div>
             <div className="flex items-center space-x-2">
               <Button

@@ -31,7 +31,7 @@ export default function MyRegistrationsPage() {
   const router = useRouter()
 
   // Base URL for file access
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://web-production-38c7.up.railway.app'
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://backend-nasa.up.railway.app'
 
   // Strict user role protection - admin should not access user registrations
   useEffect(() => {
@@ -156,7 +156,7 @@ export default function MyRegistrationsPage() {
     if (!selectedTicket) return
     
     // Create a download-friendly version of the ticket (same as print but for download)
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "https://web-production-38c7.up.railway.app";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "https://backend-nasa.up.railway.app";
     const qrCodeUrl = `${baseUrl}${selectedTicket.qrCodeUrl}`
     
     // Format expired date
