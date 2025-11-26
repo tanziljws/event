@@ -53,11 +53,39 @@ const generateCertificate = async (registrationId, participantId) => {
     // Check if event has certificate generation enabled
     const event = await prisma.event.findUnique({
       where: { id: registration.event.id },
-      select: { generateCertificate: true }
+      select: { 
+        generateCertificate: true,
+        eventDate: true,
+        eventTime: true,
+        eventEndDate: true,
+        eventEndTime: true
+      }
     });
 
     if (!event?.generateCertificate) {
       throw new Error('Certificate generation is not enabled for this event');
+    }
+
+    // Check if event has ended
+    const now = new Date();
+    let eventEndDateTime;
+
+    if (event.eventEndDate && event.eventEndTime) {
+      // Multiple days event - use eventEndDate + eventEndTime
+      const [hours, minutes] = event.eventEndTime.split(':').map(Number);
+      eventEndDateTime = new Date(event.eventEndDate);
+      eventEndDateTime.setHours(hours, minutes || 0, 0, 0);
+    } else {
+      // Single day event - use eventDate + 1 day
+      const [hours, minutes] = event.eventTime.split(':').map(Number);
+      eventEndDateTime = new Date(event.eventDate);
+      eventEndDateTime.setHours(hours, minutes || 0, 0, 0);
+      // Add 1 day
+      eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
+    }
+
+    if (now < eventEndDateTime) {
+      throw new Error('Certificate can only be generated after the event has ended');
     }
 
     // Get default global certificate template
@@ -182,7 +210,7 @@ const generateCertificate = async (registrationId, participantId) => {
   }
 };
 
-// Get user's certificates
+// Get user's certificates (including pending certificates)
 const getUserCertificates = async (participantId, filters = {}) => {
   try {
     const {
@@ -195,46 +223,43 @@ const getUserCertificates = async (participantId, filters = {}) => {
 
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where = {
+    // Get certificates that already exist
+    const certificatesWhere = {
+      registration: {
+        participantId,
+        hasAttended: true,
+      },
+      ...(search && {
+        registration: {
+          event: {
+            title: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          },
+        },
+      }),
+    };
+
+    // Get pending registrations (hasAttended=true, certificateUrl=null, generateCertificate=true)
+    const pendingRegistrationsWhere = {
       participantId,
       hasAttended: true,
-      certificateUrl: {
-        not: null,
+      certificateUrl: null,
+      event: {
+        generateCertificate: true,
+        ...(search && {
+          title: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        }),
       },
     };
 
-    if (search) {
-      where.event = {
-        title: {
-          contains: search,
-          mode: 'insensitive',
-        },
-      };
-    }
-
-    // Build orderBy clause
-    const orderBy = {};
-    orderBy[sortBy] = sortOrder;
-
-    const [certificates, total] = await Promise.all([
+    const [certificates, pendingRegistrations, certificatesTotal, pendingTotal] = await Promise.all([
       prisma.certificate.findMany({
-        where: {
-          registration: {
-            participantId,
-            hasAttended: true,
-          },
-          ...(search && {
-            registration: {
-              event: {
-                title: {
-                  contains: search,
-                  mode: 'insensitive',
-                },
-              },
-            },
-          }),
-        },
+        where: certificatesWhere,
         orderBy: {
           [sortBy === 'attendedAt' ? 'issuedAt' : sortBy]: sortOrder,
         },
@@ -249,41 +274,125 @@ const getUserCertificates = async (participantId, filters = {}) => {
                   title: true,
                   eventDate: true,
                   eventTime: true,
+                  eventEndDate: true,
+                  eventEndTime: true,
                   location: true,
                   flyerUrl: true,
+                  generateCertificate: true,
                 },
               },
+              participant: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.eventRegistration.findMany({
+        where: pendingRegistrationsWhere,
+        orderBy: {
+          [sortBy === 'attendedAt' ? 'attendedAt' : sortBy]: sortOrder,
+        },
+        skip,
+        take: parseInt(limit),
+        include: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+              eventDate: true,
+              eventTime: true,
+              eventEndDate: true,
+              eventEndTime: true,
+              location: true,
+              flyerUrl: true,
+              generateCertificate: true,
+            },
+          },
+          participant: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
             },
           },
         },
       }),
       prisma.certificate.count({
-        where: {
-          registration: {
-            participantId,
-            hasAttended: true,
-          },
-          ...(search && {
-            registration: {
-              event: {
-                title: {
-                  contains: search,
-                  mode: 'insensitive',
-                },
-              },
-            },
-          }),
-        },
+        where: certificatesWhere,
+      }),
+      prisma.eventRegistration.count({
+        where: pendingRegistrationsWhere,
       }),
     ]);
 
+    // Format certificates
+    const formattedCertificates = certificates.map(cert => ({
+      id: cert.id,
+      registrationId: cert.registrationId,
+      certificateNumber: cert.certificateNumber,
+      certificateUrl: cert.certificateUrl,
+      issuedAt: cert.issuedAt,
+      status: 'available', // Certificate already generated
+      registration: cert.registration,
+      event: cert.registration.event,
+      participant: cert.registration.participant,
+    }));
+
+    // Format pending registrations as "pending certificates"
+    const formattedPending = pendingRegistrations.map(reg => {
+      // Check if event has ended
+      const now = new Date();
+      let eventEndDateTime;
+
+      if (reg.event.eventEndDate && reg.event.eventEndTime) {
+        // Multiple days event
+        const [hours, minutes] = reg.event.eventEndTime.split(':').map(Number);
+        eventEndDateTime = new Date(reg.event.eventEndDate);
+        eventEndDateTime.setHours(hours, minutes || 0, 0, 0);
+      } else {
+        // Single day event - eventDate + 1 day
+        const [hours, minutes] = reg.event.eventTime.split(':').map(Number);
+        eventEndDateTime = new Date(reg.event.eventDate);
+        eventEndDateTime.setHours(hours, minutes || 0, 0, 0);
+        eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
+      }
+
+      const isEventEnded = now >= eventEndDateTime;
+
+      return {
+        id: `pending-${reg.id}`,
+        registrationId: reg.id,
+        certificateNumber: null,
+        certificateUrl: null,
+        issuedAt: null,
+        status: isEventEnded ? 'ready' : 'pending', // ready = event ended, can generate | pending = event not ended yet
+        eventEndDateTime: eventEndDateTime.toISOString(),
+        registration: reg,
+        event: reg.event,
+        participant: reg.participant,
+      };
+    });
+
+    // Combine and sort
+    // Slice to limit after combining
+    const allCertificates = [...formattedCertificates, ...formattedPending].sort((a, b) => {
+      const aDate = a.issuedAt ? new Date(a.issuedAt) : (a.eventEndDateTime ? new Date(a.eventEndDateTime) : new Date(a.registration?.attendedAt || 0));
+      const bDate = b.issuedAt ? new Date(b.issuedAt) : (b.eventEndDateTime ? new Date(b.eventEndDateTime) : new Date(b.registration?.attendedAt || 0));
+      return sortOrder === 'desc' ? bDate.getTime() - aDate.getTime() : aDate.getTime() - bDate.getTime();
+    }).slice(skip, skip + parseInt(limit));
+
     return {
-      certificates,
+      certificates: allCertificates,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
+        total: certificatesTotal + pendingTotal,
+        pages: Math.ceil((certificatesTotal + pendingTotal) / limit),
       },
     };
   } catch (error) {

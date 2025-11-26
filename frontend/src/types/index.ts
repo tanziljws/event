@@ -150,10 +150,17 @@ export interface Ticket {
 export interface Certificate {
   id: string;
   registrationId: string;
-  certificateUrl: string;
-  issuedAt: string;
+  certificateUrl: string | null;
+  certificateNumber?: string | null;
+  issuedAt: string | null;
+  status: 'available' | 'ready' | 'pending'; // available = sudah ada, ready = event selesai bisa generate, pending = event belum selesai
+  eventEndDateTime?: string; // For pending certificates
   registration?: EventRegistration;
-  event?: Event;
+  event?: Event & {
+    eventEndDate?: string | null;
+    eventEndTime?: string | null;
+    generateCertificate?: boolean;
+  };
   participant?: User;
 }
 

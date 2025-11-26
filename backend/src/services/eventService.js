@@ -1892,6 +1892,7 @@ const markAttendance = async (eventId, registrationToken, participantId) => {
       include: {
         event: {
           select: {
+            id: true,
             title: true,
             eventDate: true,
             eventTime: true,
@@ -1900,6 +1901,7 @@ const markAttendance = async (eventId, registrationToken, participantId) => {
         },
         participant: {
           select: {
+            id: true,
             fullName: true,
             email: true,
           },
@@ -1908,6 +1910,10 @@ const markAttendance = async (eventId, registrationToken, participantId) => {
     });
 
     logger.info(`Attendance marked for event: ${eventId}, participant: ${participantId}`);
+
+    // Note: Certificate will be generated after event ends (not immediately after check-in)
+    // Certificate can only be generated after eventEndDate + eventEndTime (for multi-day) 
+    // or eventDate + 1 day (for single day event)
 
     return {
       registration: updatedRegistration,
@@ -2089,6 +2095,7 @@ const scanQRCodeForAttendance = async (qrCodeData, participantId) => {
       include: {
         event: {
           select: {
+            id: true,
             title: true,
             eventDate: true,
             eventTime: true,
@@ -2097,12 +2104,19 @@ const scanQRCodeForAttendance = async (qrCodeData, participantId) => {
         },
         participant: {
           select: {
+            id: true,
             fullName: true,
             email: true,
           },
         },
       },
     });
+
+    logger.info(`Attendance marked for event: ${result.registration.eventId}, participant: ${participantId}`);
+
+    // Note: Certificate will be generated after event ends (not immediately after check-in)
+    // Certificate can only be generated after eventEndDate + eventEndTime (for multi-day) 
+    // or eventDate + 1 day (for single day event)
 
     return {
       registration: updatedRegistration,
@@ -2131,6 +2145,7 @@ const adminCheckIn = async (eventId, qrCodeData, adminId) => {
       include: {
         event: {
           select: {
+            id: true,
             title: true,
             eventDate: true,
             eventTime: true,
@@ -2139,6 +2154,7 @@ const adminCheckIn = async (eventId, qrCodeData, adminId) => {
         },
         participant: {
           select: {
+            id: true,
             fullName: true,
             email: true,
             phoneNumber: true,
@@ -2146,6 +2162,12 @@ const adminCheckIn = async (eventId, qrCodeData, adminId) => {
         },
       },
     });
+
+    logger.info(`Admin check-in for event: ${eventId}, participant: ${updatedRegistration.participantId}`);
+
+    // Note: Certificate will be generated after event ends (not immediately after check-in)
+    // Certificate can only be generated after eventEndDate + eventEndTime (for multi-day) 
+    // or eventDate + 1 day (for single day event)
 
     return {
       registration: updatedRegistration,
