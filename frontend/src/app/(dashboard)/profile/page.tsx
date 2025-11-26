@@ -12,7 +12,7 @@ import { LoadingSpinner } from '@/components/ui/loading'
 import {
   User, Mail, Save, ArrowLeft, Shield, CheckCircle, XCircle, Clock,
   AlertCircle, Phone, MapPin, GraduationCap, Calendar, Activity,
-  Edit2, RefreshCw, Camera, Upload
+  Edit2, RefreshCw, Camera, Upload, Ticket, Award
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
