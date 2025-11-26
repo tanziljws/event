@@ -917,7 +917,7 @@ const logoutUser = async (userId, ipAddress, userAgent) => {
 // Update user profile
 const updateUserProfile = async (userId, updateData) => {
   try {
-    const { fullName, phoneNumber, address, lastEducation, email } = updateData;
+    const { fullName, phoneNumber, address, lastEducation, email, profilePicture } = updateData;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -939,6 +939,7 @@ const updateUserProfile = async (userId, updateData) => {
     if (phoneNumber !== undefined) updateFields.phoneNumber = phoneNumber;
     if (address !== undefined) updateFields.address = address;
     if (lastEducation !== undefined) updateFields.lastEducation = lastEducation;
+    if (profilePicture !== undefined) updateFields.profilePicture = profilePicture;
 
     // Update user
     const user = await prisma.user.update({
@@ -951,6 +952,7 @@ const updateUserProfile = async (userId, updateData) => {
         phoneNumber: true,
         address: true,
         lastEducation: true,
+        profilePicture: true,
         role: true,
         emailVerified: true,
         createdAt: true,

@@ -1,0 +1,32 @@
+# Local Development Files
+# Add these to your .gitignore if not already there
+
+# Environment files
+backend/.env.local
+frontend/.env.local
+mobileapp/.env.local
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
+# Local logs
+backend/logs/*.log
+frontend/.next/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test-data/
+local-test/
+

@@ -19,9 +19,9 @@ class XenditService {
     }
 
     try {
-      this.xenditClient = new Xendit({
-        secretKey: secretKey,
-      });
+    this.xenditClient = new Xendit({
+      secretKey: secretKey,
+    });
 
       // Check available services in xendit-node v7
       const availableServices = Object.keys(this.xenditClient);
@@ -113,7 +113,7 @@ class XenditService {
                   channelProperties: payload.channelProperties ? { mobileNumber: '***' } : undefined,
                 },
               };
-              
+
               logger.error('Direct API call error:', errorDetails);
               
               // Log full error response for debugging
@@ -295,7 +295,7 @@ class XenditService {
       // Map e-wallet type to Xendit format
       // For e-wallet, Xendit uses different format
       const xenditEWalletType = eWalletType.toUpperCase();
-      
+
       // Xendit e-wallet disbursement format
       // According to Xendit docs, e-wallet uses channelCode and channelProperties
       // Format phone number: remove leading 0, add country code if needed
@@ -317,7 +317,7 @@ class XenditService {
         account_number: formattedPhone, // Phone number for e-wallet
         description: description || 'Payout from Event Management Platform',
       };
-      
+
       logger.info('E-wallet payload (formatted):', {
         external_id: payload.external_id,
         amount: payload.amount,

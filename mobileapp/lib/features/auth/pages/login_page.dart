@@ -47,11 +47,19 @@ class _LoginPageState extends State<LoginPage> {
         controller: controller,
         keyboardType: keyboardType,
         obscureText: obscureText,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 16,
+        ),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
           labelStyle: TextStyle(
-            color: isError && _hasLoginError ? Colors.red : Colors.grey[700],
+            color: isError && _hasLoginError ? Colors.red : Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+          hintStyle: TextStyle(
+            color: Colors.grey[500],
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
@@ -245,7 +253,8 @@ class _LoginPageState extends State<LoginPage> {
                               'Sign in to your account',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.grey[600],
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w400,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -407,8 +416,9 @@ class _LoginPageState extends State<LoginPage> {
                               child: Text(
                                 'OR',
                                 style: TextStyle(
-                                  color: Colors.grey[600],
+                                  color: Colors.grey[700],
                                   fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -425,8 +435,9 @@ class _LoginPageState extends State<LoginPage> {
                             Text(
                               "Don't have an account? ",
                               style: TextStyle(
-                                color: Colors.grey[600],
+                                color: Colors.grey[700],
                                 fontSize: 16,
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
                             TextButton(

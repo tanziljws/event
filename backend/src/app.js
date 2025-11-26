@@ -273,6 +273,11 @@ if (isDevelopment) {
   app.use('/api/dev', lazyRoute('./routes/dev'));
 }
 
+// Debug routes (only if ENABLE_DEBUG_ROUTES=true)
+if (isDevelopment && process.env.ENABLE_DEBUG_ROUTES === 'true') {
+  app.use('/api/debug', lazyRoute('./routes/debug'));
+}
+
 // ===== 404 Handler =====
 app.use('*', (req, res) => {
   if (isDevelopment) {

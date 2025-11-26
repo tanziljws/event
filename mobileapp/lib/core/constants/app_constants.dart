@@ -119,8 +119,9 @@ class AppConstants {
   static const List<String> allowedImageTypes = ['jpg', 'jpeg', 'png', 'webp'];
   static const List<String> allowedDocumentTypes = ['pdf', 'doc', 'docx'];
   
-  // File Base URL
-  // NOTE: Backend runs on port 5002 (not 5000) because port 5000 is used by macOS AirPlay
-  static const String fileBaseUrl = 'http://10.0.2.2:5002';
+  // File Base URL - Production Railway backend
+  static const String fileBaseUrl = 'https://backend-nasa.up.railway.app';
+  // Local development (uncomment for local testing):
+  // static const String fileBaseUrl = 'http://10.0.2.2:5002';
 }
 

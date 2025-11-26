@@ -208,6 +208,10 @@ class AttendanceBloc extends Bloc<AttendanceBlocEvent, AttendanceState> {
     CheckInParticipant event,
     Emitter<AttendanceState> emit,
   ) async {
+    print('🔵 BLOC: Check-in participant started');
+    print('🔵 BLOC: Event ID: ${event.eventId}');
+    print('🔵 BLOC: QR Code Data: ${event.qrCodeData}');
+    
     emit(AttendanceLoading());
 
     try {
@@ -216,15 +220,21 @@ class AttendanceBloc extends Bloc<AttendanceBlocEvent, AttendanceState> {
         event.qrCodeData,
       );
 
+      print('🔵 BLOC: Check-in result: ${result['success']}');
+      print('🔵 BLOC: Check-in message: ${result['message']}');
+      
       if (result['success'] == true) {
+        print('✅ BLOC: Check-in successful, emitting ParticipantCheckedIn');
         emit(ParticipantCheckedIn(
           message: result['message'],
           data: result['data'],
         ));
       } else {
+        print('❌ BLOC: Check-in failed: ${result['message']}');
         emit(AttendanceFailure(message: result['message']));
       }
     } catch (e) {
+      print('❌ BLOC: Exception during check-in: $e');
       emit(AttendanceFailure(message: 'Failed to check in participant: $e'));
     }
   }
@@ -236,17 +246,54 @@ class AttendanceBloc extends Bloc<AttendanceBlocEvent, AttendanceState> {
     emit(AttendanceLoading());
 
     try {
+      print('🔍 BLOC: Starting event detection for token: ${event.token}');
       final result = await _attendanceService.detectEventFromToken(event.token);
 
       if (result['success'] == true) {
-        emit(EventDetected(
-          detectedData: result['data'],
-          message: result['message'],
-        ));
+        print('✅ BLOC: Event detected successfully');
+        print('📦 BLOC: Result data type: ${result['data'].runtimeType}');
+        print('📦 BLOC: Result data: ${result['data']}');
+        
+        // Parse the data into DetectedEventData
+        DetectedEventData detectedData;
+        try {
+          if (result['data'] is DetectedEventData) {
+            detectedData = result['data'] as DetectedEventData;
+            print('✅ BLOC: Data is already DetectedEventData');
+          } else {
+            detectedData = DetectedEventData.fromJson(result['data'] as Map<String, dynamic>);
+            print('✅ BLOC: Data parsed from JSON');
+          }
+          print('📦 BLOC: Parsed detectedData: event=${detectedData.event.id}, participant=${detectedData.participant.fullName}, hasAttended=${detectedData.registration?.hasAttended}');
+        } catch (e) {
+          print('❌ BLOC: Error parsing DetectedEventData: $e');
+          emit(AttendanceFailure(message: 'Failed to parse event data: $e'));
+          return;
+        }
+        
+        print('🚀 BLOC: Emitting EventDetected state...');
+        final eventDetectedState = EventDetected(
+          detectedData: detectedData,
+          message: result['message'] ?? 'Event detected successfully',
+        );
+        print('📦 BLOC: EventDetected state object created: ${eventDetectedState.runtimeType}');
+        print('📦 BLOC: EventDetected state details: event=${eventDetectedState.detectedData.event.id}, participant=${eventDetectedState.detectedData.participant.fullName}');
+        print('🔍 BLOC: Current state before emit: ${state.runtimeType}');
+        print('🔍 BLOC: State equality check: ${state == eventDetectedState}');
+        print('🔍 BLOC: State props comparison: ${state.props} vs ${eventDetectedState.props}');
+        
+        // Force emit by using emit directly
+        emit(eventDetectedState);
+        
+        print('✅ BLOC: EventDetected state emitted!');
+        print('🔍 BLOC: Current state after emit: ${state.runtimeType}');
+        print('🔍 BLOC: Stream state check - should be EventDetected');
       } else {
+        print('❌ BLOC: Event detection failed: ${result['message']}');
         emit(AttendanceFailure(message: result['message']));
       }
     } catch (e) {
+      print('❌ BLOC: Exception during event detection: $e');
       emit(AttendanceFailure(message: 'Failed to detect event from token: $e'));
     }
   }

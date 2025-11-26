@@ -6,6 +6,8 @@
   "scripts": {
     "start": "NODE_OPTIONS='--no-warnings --max-old-space-size=4096' node src/app.js",
     "dev": "nodemon src/app.js",
+    "dev:debug": "DEBUG=true ENABLE_DEBUG_ROUTES=true LOG_LEVEL=debug nodemon src/app.js",
+    "dev:watch": "nodemon --watch src src/app.js",
     "postinstall": "npx prisma generate",
     "build": "npx prisma migrate deploy",
     "test": "jest",

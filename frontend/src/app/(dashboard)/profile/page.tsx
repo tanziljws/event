@@ -12,11 +12,13 @@ import { LoadingSpinner } from '@/components/ui/loading'
 import {
   User, Mail, Save, ArrowLeft, Shield, CheckCircle, XCircle, Clock,
   AlertCircle, Phone, MapPin, GraduationCap, Calendar, Activity,
-  Edit2, Award, Settings, Ticket, Lock, Bell, Eye, EyeOff, RefreshCw
+  Edit2, Award, Settings, Ticket, Lock, Bell, Eye, EyeOff, RefreshCw, Camera, Upload
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { formatDateTime } from '@/lib/utils'
+import { ApiService } from '@/lib/api'
+import { getImageUrl } from '@/lib/image-utils'
 
 const profileSchema = z.object({
   fullName: z.string().min(2, 'Nama lengkap minimal 2 karakter'),
@@ -32,6 +34,9 @@ function ProfileContent() {
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
   const [isSwitchingRole, setIsSwitchingRole] = useState(false)
+  const [isUploadingPicture, setIsUploadingPicture] = useState(false)
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const cursorRef = useRef<HTMLDivElement>(null)
 
@@ -207,6 +212,82 @@ function ProfileContent() {
       .slice(0, 2)
   }
 
+  // Handle profile picture upload
+  const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('File harus berupa gambar')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file maksimal 5MB')
+      return
+    }
+
+    setIsUploadingPicture(true)
+    try {
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setProfilePicturePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+
+      // Upload file
+      const uploadResponse = await ApiService.uploadProfilePicture(file)
+      if (uploadResponse.success && uploadResponse.data?.url) {
+        // Update profile with new picture URL
+        const updateResponse = await ApiService.updateProfile({
+          profilePicture: uploadResponse.data.url
+        })
+        if (updateResponse.success) {
+          // Refresh user data
+          window.location.reload()
+        } else {
+          alert('Gagal mengupdate foto profil')
+        }
+      } else {
+        alert('Gagal mengupload foto')
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error)
+      alert('Terjadi kesalahan saat mengupload foto')
+    } finally {
+      setIsUploadingPicture(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleRemoveProfilePicture = async () => {
+    if (!confirm('Apakah Anda yakin ingin menghapus foto profil?')) return
+
+    try {
+      const updateResponse = await ApiService.updateProfile({
+        profilePicture: null
+      })
+      if (updateResponse.success) {
+        window.location.reload()
+      } else {
+        alert('Gagal menghapus foto profil')
+      }
+    } catch (error) {
+      console.error('Error removing profile picture:', error)
+      alert('Terjadi kesalahan saat menghapus foto')
+    }
+  }
+
+  // Get profile picture URL
+  const profilePictureUrl = user?.profilePicture 
+    ? getImageUrl(user.profilePicture)
+    : null
+
   return (
     <>
       {/* Custom Cursor */}
@@ -285,19 +366,128 @@ function ProfileContent() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {/* Avatar */}
                     <div style={{
+                      position: 'relative',
                       width: '5rem',
                       height: '5rem',
-                      borderRadius: '50%',
-                      background: 'var(--color-primary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: '1.5rem',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      marginBottom: '1.5rem'
                     }}>
-                      <span style={{ fontSize: '1.5rem', fontWeight: '600', color: 'white' }}>
-                        {getInitials(user.fullName)}
-                      </span>
+                      <div style={{
+                        width: '5rem',
+                        height: '5rem',
+                        borderRadius: '50%',
+                        background: profilePictureUrl ? 'transparent' : 'var(--color-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        overflow: 'hidden',
+                        position: 'relative'
+                      }}>
+                        {profilePictureUrl ? (
+                          <img
+                            src={profilePicturePreview || profilePictureUrl}
+                            alt={user.fullName}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '1.5rem', fontWeight: '600', color: 'white' }}>
+                            {getInitials(user.fullName)}
+                          </span>
+                        )}
+                      </div>
+                      {/* Upload Button */}
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingPicture}
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          right: 0,
+                          width: '2rem',
+                          height: '2rem',
+                          borderRadius: '50%',
+                          background: 'var(--color-primary)',
+                          border: '2px solid white',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: isUploadingPicture ? 'not-allowed' : 'pointer',
+                          opacity: isUploadingPicture ? 0.6 : 1,
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        }}
+                        className="interactive"
+                        onMouseEnter={(e) => {
+                          if (!isUploadingPicture) {
+                            e.currentTarget.style.transform = 'scale(1.1)'
+                            e.currentTarget.style.background = '#2563eb'
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'scale(1)'
+                          e.currentTarget.style.background = 'var(--color-primary)'
+                        }}
+                        title="Ubah Foto Profil"
+                      >
+                        {isUploadingPicture ? (
+                          <div style={{
+                            width: '0.75rem',
+                            height: '0.75rem',
+                            border: '2px solid white',
+                            borderTop: '2px solid transparent',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                          }} />
+                        ) : (
+                          <Camera style={{ width: '0.875rem', height: '0.875rem', color: 'white' }} />
+                        )}
+                      </button>
+                      {/* Remove Button (if picture exists) */}
+                      {profilePictureUrl && !isUploadingPicture && (
+                        <button
+                          onClick={handleRemoveProfilePicture}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            right: 0,
+                            width: '1.5rem',
+                            height: '1.5rem',
+                            borderRadius: '50%',
+                            background: 'rgba(239, 68, 68, 0.9)',
+                            border: '2px solid white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                          }}
+                          className="interactive"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'scale(1.1)'
+                            e.currentTarget.style.background = 'rgba(220, 38, 38, 0.9)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)'
+                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)'
+                          }}
+                          title="Hapus Foto Profil"
+                        >
+                          <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 'bold' }}>×</span>
+                        </button>
+                      )}
+                      {/* Hidden File Input */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePictureChange}
+                        style={{ display: 'none' }}
+                      />
                     </div>
 
                     <h2 style={{

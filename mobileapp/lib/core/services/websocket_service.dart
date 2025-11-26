@@ -41,10 +41,10 @@ class WebSocketService {
       // Refresh token before connecting
       await _refreshTokenIfNeeded();
       
-      // LOCAL DEVELOPMENT - Android Emulator uses 10.0.2.2 to access host's localhost
-      // For physical device, use your computer's IP (e.g., 192.168.x.x:5002)
-      // NOTE: Backend runs on port 5002 (not 5000) because port 5000 is used by macOS AirPlay
-      final wsUrl = 'ws://10.0.2.2:5002/ws?token=$_accessToken';
+      // Production Railway backend WebSocket
+      final wsUrl = 'wss://backend-nasa.up.railway.app/ws?token=$_accessToken';
+      // Local development (uncomment for local testing):
+      // final wsUrl = 'ws://10.0.2.2:5002/ws?token=$_accessToken';
       print('🔌 Connecting to WebSocket: $wsUrl');
 
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));

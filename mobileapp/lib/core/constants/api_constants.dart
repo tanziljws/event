@@ -1,10 +1,10 @@
 class ApiConstants {
-  // Base URL - Local Development
-  // LOCAL DEVELOPMENT - Android Emulator uses 10.0.2.2 to access host's localhost
-  // Untuk device fisik, gunakan IP komputer (misalnya: 192.168.x.x:5002)
-  // NOTE: Backend runs on port 5002 (not 5000) because port 5000 is used by macOS AirPlay
-  static const String baseUrl = 'http://10.0.2.2:5002/api';
-  static const String fileBaseUrl = 'http://10.0.2.2:5002';
+  // Base URL - Production Railway backend
+  static const String baseUrl = 'https://backend-nasa.up.railway.app/api';
+  static const String fileBaseUrl = 'https://backend-nasa.up.railway.app';
+  // Local development (uncomment for local testing):
+  // static const String baseUrl = 'http://10.0.2.2:5002/api';
+  // static const String fileBaseUrl = 'http://10.0.2.2:5002';
   
   // Authentication endpoints
   static const String login = '/auth/login';

@@ -171,8 +171,20 @@ export class ApiService {
     phoneNumber?: string;
     address?: string;
     lastEducation?: string;
+    profilePicture?: string;
   }): Promise<ApiResponse> {
     const response = await apiClient.put('/auth/profile', data);
+    return response.data;
+  }
+
+  static async uploadProfilePicture(file: File): Promise<ApiResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/upload/single', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 

@@ -71,10 +71,20 @@ class _RegisterPageState extends State<RegisterPage> {
       keyboardType: keyboardType,
       maxLines: maxLines,
       obscureText: obscureText,
+      style: const TextStyle(
+        color: Colors.black87,
+        fontSize: 16,
+      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: TextStyle(color: isSuccess ? Colors.green : Colors.grey[700]),
+        labelStyle: TextStyle(
+          color: isSuccess ? Colors.green : Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
+        hintStyle: TextStyle(
+          color: Colors.grey[500],
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide(color: isSuccess ? Colors.green : Colors.grey[300]!),
@@ -286,7 +296,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                   'Create your account to get started',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    color: Colors.grey[600],
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w400,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -323,10 +334,10 @@ class _RegisterPageState extends State<RegisterPage> {
                                         'Participant',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.w600,
                                           color: _selectedRole == 'PARTICIPANT' 
                                               ? Colors.black87 
-                                              : Colors.grey[700],
+                                              : Colors.grey[800],
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
@@ -361,10 +372,10 @@ class _RegisterPageState extends State<RegisterPage> {
                                         'Organizer',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.w600,
                                           color: _selectedRole == 'ORGANIZER' 
                                               ? Colors.black87 
-                                              : Colors.grey[700],
+                                              : Colors.grey[800],
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
@@ -828,8 +839,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                 Text(
                                   'Already have an account? ',
                                   style: TextStyle(
-                                    color: Colors.grey[600],
+                                    color: Colors.grey[700],
                                     fontSize: 16,
+                                    fontWeight: FontWeight.w400,
                                   ),
                                 ),
                                 TextButton(

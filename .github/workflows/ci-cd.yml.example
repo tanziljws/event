@@ -1,0 +1,100 @@
+# CI/CD Pipeline Example
+# Copy to .github/workflows/ci-cd.yml
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # Test Backend
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm ci
+          
+      - name: Run tests
+        run: |
+          cd backend
+          npm test
+          
+      - name: Lint
+        run: |
+          cd backend
+          npm run lint
+
+  # Test Frontend
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test
+          
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+
+  # Deploy to Staging (develop branch)
+  deploy-staging:
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to Railway Staging
+        run: |
+          echo "Deploying to staging..."
+          # Add Railway CLI commands here
+          # railway up --service staging-backend
+          # railway up --service staging-frontend
+
+  # Deploy to Production (main branch)
+  deploy-production:
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to Railway Production
+        run: |
+          echo "Deploying to production..."
+          # Add Railway CLI commands here
+          # railway up --service production-backend
+          # railway up --service production-frontend
+          
+      - name: Create Release Tag
+        run: |
+          VERSION=$(date +%Y%m%d-%H%M%S)
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+

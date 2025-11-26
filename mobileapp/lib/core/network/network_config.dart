@@ -20,10 +20,10 @@ class NetworkConfig {
   };
 
   // API endpoints
-  // Use local backend for development
-  // NOTE: Backend runs on port 5002 (not 5000) because port 5000 is used by macOS AirPlay
-  static const String baseUrl = 'http://10.0.2.2:5002/api'; // Android emulator localhost
-  // Production: static const String baseUrl = 'https://web-production-38c7.up.railway.app/api';
+  // Production Railway backend
+  static const String baseUrl = 'https://backend-nasa.up.railway.app/api';
+  // Local development (uncomment for local testing):
+  // static const String baseUrl = 'http://10.0.2.2:5002/api'; // Android emulator localhost
   
   // Endpoint paths
   static const String auth = '/auth';

@@ -15,6 +15,7 @@ model User {
   phoneNumber                String?                     @map("phone_number")
   address                    String?
   lastEducation              String?                     @map("last_education")
+  profilePicture             String?                     @map("profile_picture")
   password                   String
   role                       UserRole                    @default(PARTICIPANT)
   department                 Department?                 @default(PARTICIPANT)

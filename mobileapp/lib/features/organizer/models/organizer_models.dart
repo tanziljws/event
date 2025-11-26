@@ -73,16 +73,16 @@ class OrganizerEvent {
     if (url.startsWith('/data/') || url.startsWith('/storage/') || url.contains('cache/')) {
       // Extract filename from path
       final filename = url.split('/').last;
-      return 'https://web-production-38c7.up.railway.app/uploads/$filename';
+      return 'https://backend-nasa.up.railway.app/uploads/$filename';
     }
     
     // If it's a relative path, assume it's a server path
     if (url.startsWith('/')) {
-      return 'https://web-production-38c7.up.railway.app$url';
+      return 'https://backend-nasa.up.railway.app$url';
     }
     
     // Default: assume it's a filename in uploads folder
-    return 'https://web-production-38c7.up.railway.app/uploads/$url';
+    return 'https://backend-nasa.up.railway.app/uploads/$url';
   }
 
   factory OrganizerEvent.fromJson(Map<String, dynamic> json) {

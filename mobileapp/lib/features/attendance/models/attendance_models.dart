@@ -195,16 +195,21 @@ class AttendanceData {
 class DetectedEventData {
   final AttendanceEvent event;
   final AttendanceParticipant participant;
+  final DetectedRegistration? registration;
 
   DetectedEventData({
     required this.event,
     required this.participant,
+    this.registration,
   });
 
   factory DetectedEventData.fromJson(Map<String, dynamic> json) {
     return DetectedEventData(
       event: AttendanceEvent.fromJson(json['event'] ?? {}),
       participant: AttendanceParticipant.fromJson(json['participant'] ?? {}),
+      registration: json['registration'] != null
+          ? DetectedRegistration.fromJson(json['registration'])
+          : null,
     );
   }
 
@@ -212,6 +217,39 @@ class DetectedEventData {
     return {
       'event': event.toJson(),
       'participant': participant.toJson(),
+      if (registration != null) 'registration': registration!.toJson(),
+    };
+  }
+}
+
+class DetectedRegistration {
+  final String id;
+  final String token;
+  final bool hasAttended;
+  final String registeredAt;
+
+  DetectedRegistration({
+    required this.id,
+    required this.token,
+    required this.hasAttended,
+    required this.registeredAt,
+  });
+
+  factory DetectedRegistration.fromJson(Map<String, dynamic> json) {
+    return DetectedRegistration(
+      id: json['id'] ?? '',
+      token: json['token'] ?? '',
+      hasAttended: json['hasAttended'] ?? false,
+      registeredAt: json['registeredAt'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'token': token,
+      'hasAttended': hasAttended,
+      'registeredAt': registeredAt,
     };
   }
 }

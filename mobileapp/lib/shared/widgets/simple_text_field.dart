@@ -65,7 +65,7 @@ class SimpleTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(
-              color: Colors.grey[400],
+              color: Colors.grey[500],
               fontSize: 16,
               fontWeight: FontWeight.w400,
             ),
