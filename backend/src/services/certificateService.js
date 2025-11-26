@@ -259,11 +259,19 @@ const getUserCertificates = async (participantId, filters = {}) => {
       };
     }
 
+    // Validate sortBy field for certificates
+    const validCertificateSortFields = ['issuedAt', 'createdAt', 'updatedAt'];
+    const certificateSortField = validCertificateSortFields.includes(sortBy) ? sortBy : 'issuedAt';
+
+    // Validate sortBy field for registrations
+    const validRegistrationSortFields = ['attendedAt', 'registeredAt', 'createdAt'];
+    const registrationSortField = validRegistrationSortFields.includes(sortBy) ? sortBy : 'attendedAt';
+
     const [certificates, pendingRegistrations, certificatesTotal, pendingTotal] = await Promise.all([
       prisma.certificate.findMany({
         where: certificatesWhere,
         orderBy: {
-          [sortBy === 'attendedAt' ? 'issuedAt' : sortBy]: sortOrder,
+          [certificateSortField]: sortOrder,
         },
         skip,
         take: parseInt(limit),
@@ -297,7 +305,7 @@ const getUserCertificates = async (participantId, filters = {}) => {
       prisma.eventRegistration.findMany({
         where: pendingRegistrationsWhere,
         orderBy: {
-          [sortBy === 'attendedAt' ? 'attendedAt' : sortBy]: sortOrder,
+          [registrationSortField]: sortOrder,
         },
         skip,
         take: parseInt(limit),
