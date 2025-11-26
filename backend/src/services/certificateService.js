@@ -223,37 +223,41 @@ const getUserCertificates = async (participantId, filters = {}) => {
 
     const skip = (page - 1) * limit;
 
-    // Get certificates that already exist
+    // Build where clause for certificates
     const certificatesWhere = {
       registration: {
         participantId,
         hasAttended: true,
-        ...(search ? {
-          event: {
-            title: {
-              contains: search,
-              mode: 'insensitive',
-            },
-          },
-        } : {}),
       },
     };
 
-    // Get pending registrations (hasAttended=true, certificateUrl=null, generateCertificate=true)
+    // Add search filter for certificates if provided
+    if (search) {
+      certificatesWhere.registration.event = {
+        title: {
+          contains: search,
+          mode: 'insensitive',
+        },
+      };
+    }
+
+    // Build where clause for pending registrations
     const pendingRegistrationsWhere = {
       participantId,
       hasAttended: true,
       certificateUrl: null,
       event: {
         generateCertificate: true,
-        ...(search && {
-          title: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        }),
       },
     };
+
+    // Add search filter for pending registrations if provided
+    if (search) {
+      pendingRegistrationsWhere.event.title = {
+        contains: search,
+        mode: 'insensitive',
+      };
+    }
 
     const [certificates, pendingRegistrations, certificatesTotal, pendingTotal] = await Promise.all([
       prisma.certificate.findMany({
@@ -343,19 +347,24 @@ const getUserCertificates = async (participantId, filters = {}) => {
 
     // Format pending registrations as "pending certificates"
     const formattedPending = pendingRegistrations.map(reg => {
+      if (!reg.event) {
+        logger.warn(`Registration ${reg.id} has no event`);
+        return null;
+      }
+
       // Check if event has ended
       const now = new Date();
       let eventEndDateTime;
 
       try {
-        if (reg.event?.eventEndDate && reg.event?.eventEndTime) {
+        if (reg.event.eventEndDate && reg.event.eventEndTime) {
           // Multiple days event
           const timeParts = reg.event.eventEndTime.split(':');
           const hours = parseInt(timeParts[0]) || 0;
           const minutes = parseInt(timeParts[1]) || 0;
           eventEndDateTime = new Date(reg.event.eventEndDate);
           eventEndDateTime.setHours(hours, minutes, 0, 0);
-        } else if (reg.event?.eventDate && reg.event?.eventTime) {
+        } else if (reg.event.eventDate && reg.event.eventTime) {
           // Single day event - eventDate + 1 day
           const timeParts = reg.event.eventTime.split(':');
           const hours = parseInt(timeParts[0]) || 0;
@@ -365,13 +374,13 @@ const getUserCertificates = async (participantId, filters = {}) => {
           eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
         } else {
           // Fallback: use eventDate + 1 day
-          eventEndDateTime = new Date(reg.event?.eventDate || new Date());
+          eventEndDateTime = new Date(reg.event.eventDate || new Date());
           eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
         }
       } catch (error) {
         logger.error('Error calculating eventEndDateTime:', error);
         // Fallback: use eventDate + 1 day
-        eventEndDateTime = new Date(reg.event?.eventDate || new Date());
+        eventEndDateTime = new Date(reg.event.eventDate || new Date());
         eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
       }
 
@@ -389,7 +398,7 @@ const getUserCertificates = async (participantId, filters = {}) => {
         event: reg.event,
         participant: reg.participant,
       };
-    });
+    }).filter(cert => cert !== null);
 
     // Combine and sort
     // Slice to limit after combining
