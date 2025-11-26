@@ -14,8 +14,6 @@ import { Event } from '@/types'
 function DashboardContent() {
   const { user, logout, isAuthenticated, isInitialized, isLoading } = useAuth()
   const router = useRouter()
-  const [latestEvent, setLatestEvent] = useState<Event | null>(null)
-  const [isLoadingEvent, setIsLoadingEvent] = useState(true)
   const [userStats, setUserStats] = useState({
     totalRegistrations: 0,
     totalCertificates: 0,
@@ -97,28 +95,6 @@ function DashboardContent() {
     loadUserStats()
   }, [])
 
-  // Fetch latest event
-  useEffect(() => {
-    const fetchLatestEvent = async () => {
-      try {
-        setIsLoadingEvent(true)
-        const response = await ApiService.getPublicEvents()
-        if (response && response.data && Array.isArray(response.data) && response.data.length > 0) {
-          // Sort by createdAt descending and take the first one
-          const sortedEvents = response.data.sort((a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          )
-          setLatestEvent(sortedEvents[0])
-        }
-      } catch (error) {
-        console.error('Error fetching latest event:', error)
-      } finally {
-        setIsLoadingEvent(false)
-      }
-    }
-
-    fetchLatestEvent()
-  }, [])
 
   // Strict user role protection - admin should not access user dashboard
   useEffect(() => {
