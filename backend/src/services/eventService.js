@@ -990,12 +990,11 @@ const registerForEvent = async (eventId, participantId, privatePassword) => {
       }
 
       // Check if user is already registered (with lock)
-      const existingRegistration = await tx.eventRegistration.findUnique({
+      const existingRegistration = await tx.eventRegistration.findFirst({
         where: {
-          eventId_participantId: {
-            eventId,
-            participantId,
-          },
+          eventId,
+          participantId,
+          status: 'ACTIVE',
         },
       });
 
@@ -1791,12 +1790,11 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId, p
 const cancelEventRegistration = async (eventId, participantId) => {
   try {
     // Find the registration
-    const registration = await prisma.eventRegistration.findUnique({
+    const registration = await prisma.eventRegistration.findFirst({
       where: {
-        eventId_participantId: {
-          eventId,
-          participantId,
-        },
+        eventId,
+        participantId,
+        status: 'ACTIVE',
       },
       include: {
         event: {
