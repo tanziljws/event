@@ -9,7 +9,6 @@ import { RecentActivity } from '@/components/dashboard/recent-activity'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ApiService } from '@/lib/api'
-import { Event } from '@/types'
 
 function DashboardContent() {
   const { user, logout, isAuthenticated, isInitialized, isLoading } = useAuth()
