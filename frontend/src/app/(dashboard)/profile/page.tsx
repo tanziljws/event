@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,9 +8,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { ProtectedRoute } from '@/components/auth/protected-route'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/loading'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   User, Mail, Save, ArrowLeft, Shield, CheckCircle, XCircle, Clock,
   AlertCircle, Phone, MapPin, GraduationCap, Calendar, Activity,
@@ -35,6 +33,7 @@ function ProfileContent() {
   const [activeTab, setActiveTab] = useState('profile')
   const [isSwitchingRole, setIsSwitchingRole] = useState(false)
   const router = useRouter()
+  const cursorRef = useRef<HTMLDivElement>(null)
 
   // Check if user is in temporary mode
   const metadata = user?.metadata && typeof user.metadata === 'object' && user.metadata !== null ? user.metadata as any : null
@@ -51,27 +50,23 @@ function ProfileContent() {
 
   const handleSwitchRole = async () => {
     if (!canSwitchRoles) return
-    
+
     setIsSwitchingRole(true)
     try {
       let targetRole: 'ORGANIZER' | 'PARTICIPANT'
-      
+
       if (isInParticipantMode) {
-        // Currently in participant mode, switch back to organizer
         targetRole = 'ORGANIZER'
       } else if (isInOrganizerMode) {
-        // Currently in organizer mode (temporary), switch back to participant
         targetRole = 'PARTICIPANT'
       } else if (user?.role === 'PARTICIPANT' && canSwitchToOrganizer) {
-        // Participant with approved organizer request, switch to organizer
         targetRole = 'ORGANIZER'
       } else if (user?.role === 'ORGANIZER' && canSwitchToParticipant) {
-        // Approved organizer, switch to participant
         targetRole = 'PARTICIPANT'
       } else {
         return
       }
-      
+
       await switchRole(targetRole)
     } catch (error) {
       console.error('Error switching role:', error)
@@ -79,6 +74,60 @@ function ProfileContent() {
       setIsSwitchingRole(false)
     }
   }
+
+  // Custom cursor
+  useEffect(() => {
+    const cursor = cursorRef.current;
+    if (!cursor) return;
+
+    const moveCursor = (e: MouseEvent) => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY + 'px';
+    };
+
+    const handleMouseEnter = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && target.classList && (target.tagName === 'BUTTON' || target.tagName === 'A' || target.classList.contains('interactive'))) {
+        cursor.classList.add('hover');
+      }
+      if (target && (target.tagName === 'P' || target.tagName === 'H1' || target.tagName === 'H2' || target.tagName === 'H3' || target.tagName === 'INPUT')) {
+        cursor.classList.add('text');
+      }
+    };
+
+    const handleMouseLeave = () => {
+      cursor.classList.remove('hover', 'text');
+    };
+
+    document.addEventListener('mousemove', moveCursor);
+    document.addEventListener('mouseenter', handleMouseEnter);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      document.removeEventListener('mousemove', moveCursor);
+      document.removeEventListener('mouseenter', handleMouseEnter);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
+  // Scroll animations
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    const elements = document.querySelectorAll('.fade-in-up');
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
 
   // Strict user role protection
   useEffect(() => {
@@ -92,7 +141,7 @@ function ProfileContent() {
 
   if (isLoading || !isInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -105,7 +154,7 @@ function ProfileContent() {
 
   if (user.role === 'ADMIN') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -159,64 +208,136 @@ function ProfileContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-blue-600 shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center space-x-4">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="text-white hover:bg-blue-700 transition-all">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Kembali
-                </Button>
-              </Link>
-              <div className="flex items-center">
-                <User className="h-6 w-6 text-white mr-3" />
-                <div>
-                  <h1 className="text-xl font-bold text-white">Profil Saya</h1>
-                  <p className="text-xs text-blue-100">Kelola informasi akun Anda</p>
-                </div>
+    <>
+      {/* Custom Cursor */}
+      <div ref={cursorRef} className="custom-cursor" />
+
+      {/* Animated Background Grid */}
+      <div className="bg-grid" />
+
+      <div style={{ minHeight: '100vh', padding: '2rem', display: 'flex', justifyContent: 'center', background: 'var(--color-bg)' }}>
+        <div className="container" style={{ maxWidth: '1200px', width: '100%' }}>
+          {/* Header */}
+          <div className="fade-in-up" style={{ marginBottom: '3rem' }}>
+            <Link href="/dashboard" className="interactive" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem', color: 'var(--color-muted)', textDecoration: 'none' }}>
+              <ArrowLeft style={{ width: '1rem', height: '1rem' }} />
+              <span>Kembali ke Dashboard</span>
+            </Link>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{
+                fontSize: '0.875rem',
+                color: 'var(--color-primary)',
+                marginBottom: '0.5rem',
+                fontWeight: '500',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase'
+              }}>
+                Profil
               </div>
+              <h1 style={{
+                fontSize: '2.5rem',
+                fontWeight: '300',
+                color: 'var(--color-text)',
+                marginBottom: '0.5rem',
+                lineHeight: '1.2'
+              }}>
+                Profil Saya
+              </h1>
+              <p style={{
+                fontSize: '1.125rem',
+                color: 'var(--color-muted)',
+                lineHeight: '1.6'
+              }}>
+                Kelola informasi akun dan preferensi Anda
+              </p>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* Main Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Profile Info (Sticky) */}
-          <aside className="lg:col-span-1">
-            <div className="sticky top-24 space-y-4 animate-fade-in">
-              {/* Profile Card */}
-              <Card className="border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                <div className="h-24 bg-blue-600"></div>
-                <CardContent className="relative pt-0 pb-6">
-                  <div className="flex flex-col items-center -mt-12">
+          {/* Main Layout */}
+          <div className="fade-in-up stagger-1" style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 2.5fr',
+            gap: '2rem',
+            alignItems: 'start'
+          }}>
+            {/* Sidebar - Profile Info */}
+            <aside>
+              <div style={{ position: 'sticky', top: '2rem' }}>
+                {/* Profile Card */}
+                <div className="fade-in-up stagger-2" style={{
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: '1rem',
+                  padding: '2rem',
+                  marginBottom: '1.5rem',
+                  transition: 'all 0.3s ease'
+                }}
+                  className="interactive"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.borderColor = 'var(--border-default)';
+                  }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {/* Avatar */}
-                    <div className="h-24 w-24 rounded-full bg-blue-500 flex items-center justify-center shadow-xl ring-4 ring-white hover:scale-110 transition-transform duration-300">
-                      <span className="text-3xl font-bold text-white">
+                    <div style={{
+                      width: '5rem',
+                      height: '5rem',
+                      borderRadius: '50%',
+                      background: 'var(--color-primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '1.5rem',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '600', color: 'white' }}>
                         {getInitials(user.fullName)}
                       </span>
                     </div>
 
-                    <h2 className="mt-4 text-lg font-bold text-gray-900 text-center">{user.fullName}</h2>
-                    <p className="text-xs text-gray-500 mt-1">{user.email}</p>
+                    <h2 style={{
+                      fontSize: '1.25rem',
+                      fontWeight: '600',
+                      color: 'var(--color-text)',
+                      marginBottom: '0.5rem',
+                      textAlign: 'center'
+                    }}>
+                      {user.fullName}
+                    </h2>
+                    <p style={{
+                      fontSize: '0.875rem',
+                      color: 'var(--color-muted)',
+                      marginBottom: '1rem',
+                      textAlign: 'center'
+                    }}>
+                      {user.email}
+                    </p>
 
                     {/* Role Badge */}
-                    <div className="mt-3">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        (user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED') || isInOrganizerMode
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                        }`}>
-                        {isInOrganizerMode 
-                          ? '🎯 Organizer Mode' 
-                          : isInParticipantMode 
-                            ? '👤 Peserta Mode' 
-                            : (user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED' 
-                              ? '🎯 Organizer' 
+                    <div style={{ marginBottom: '1rem' }}>
+                      <span style={{
+                        padding: '0.375rem 0.75rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        borderRadius: '9999px',
+                        background: (user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED') || isInOrganizerMode
+                          ? 'rgba(59, 130, 246, 0.1)'
+                          : 'var(--color-surface)',
+                        color: (user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED') || isInOrganizerMode
+                          ? 'var(--color-primary)'
+                          : 'var(--color-muted)'
+                      }}>
+                        {isInOrganizerMode
+                          ? '🎯 Organizer Mode'
+                          : isInParticipantMode
+                            ? '👤 Peserta Mode'
+                            : (user.role === 'ORGANIZER' && user.verificationStatus === 'APPROVED'
+                              ? '🎯 Organizer'
                               : (canSwitchToOrganizer ? '👤 Peserta (Organizer Approved)' : '👤 Peserta'))
                         }
                       </span>
@@ -224,41 +345,59 @@ function ProfileContent() {
 
                     {/* Switch Role Button */}
                     {canSwitchRoles && (
-                      <div className="mt-3">
-                        <Button
+                      <div style={{ width: '100%', marginBottom: '1rem' }}>
+                        <button
                           onClick={handleSwitchRole}
                           disabled={isSwitchingRole}
-                          variant="outline"
-                          size="sm"
-                          className="w-full text-xs"
+                          className="btn btn-primary interactive"
+                          style={{
+                            width: '100%',
+                            fontSize: '0.75rem',
+                            padding: '0.5rem 1rem',
+                            opacity: isSwitchingRole ? 0.6 : 1,
+                            cursor: isSwitchingRole ? 'not-allowed' : 'pointer'
+                          }}
                         >
-                          <RefreshCw className={`h-3 w-3 mr-2 ${isSwitchingRole ? 'animate-spin' : ''}`} />
-                          {isSwitchingRole 
-                            ? 'Mengubah...' 
-                            : isInParticipantMode 
-                              ? 'Kembali ke Organizer' 
+                          <RefreshCw style={{
+                            width: '0.75rem',
+                            height: '0.75rem',
+                            marginRight: '0.5rem',
+                            animation: isSwitchingRole ? 'spin 1s linear infinite' : 'none'
+                          }} />
+                          {isSwitchingRole
+                            ? 'Mengubah...'
+                            : isInParticipantMode
+                              ? 'Kembali ke Organizer'
                               : isInOrganizerMode
                                 ? 'Kembali ke Peserta'
                                 : canSwitchToOrganizer
                                   ? 'Beralih ke Organizer'
                                   : 'Beralih ke Peserta'
                           }
-                        </Button>
+                        </button>
                       </div>
                     )}
 
                     {/* Verification Badge */}
-                    <div className="mt-2">
-                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${user.emailVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '0.375rem 0.75rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        borderRadius: '9999px',
+                        background: user.emailVerified ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
+                        color: user.emailVerified ? '#10b981' : '#fbbf24'
+                      }}>
                         {user.emailVerified ? (
                           <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
+                            <CheckCircle style={{ width: '0.75rem', height: '0.75rem', marginRight: '0.25rem' }} />
                             Terverifikasi
                           </>
                         ) : (
                           <>
-                            <Clock className="h-3 w-3 mr-1" />
+                            <Clock style={{ width: '0.75rem', height: '0.75rem', marginRight: '0.25rem' }} />
                             Belum Terverifikasi
                           </>
                         )}
@@ -267,11 +406,18 @@ function ProfileContent() {
                   </div>
 
                   {/* Stats */}
-                  <div className="mt-6 pt-4 border-t border-gray-100 space-y-3">
-                    <div className="flex items-center text-xs text-gray-600 hover:text-blue-600 transition-colors">
-                      <Calendar className="h-4 w-4 mr-2 text-blue-500" />
-                      <span className="flex-1">Bergabung</span>
-                      <span className="font-medium">
+                  <div style={{
+                    marginTop: '1.5rem',
+                    paddingTop: '1.5rem',
+                    borderTop: '1px solid var(--border-default)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                      <Calendar style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
+                      <span style={{ flex: 1 }}>Bergabung</span>
+                      <span style={{ fontWeight: '500', color: 'var(--color-text)' }}>
                         {new Date(user.createdAt).toLocaleDateString('id-ID', {
                           month: 'short',
                           year: 'numeric'
@@ -280,10 +426,10 @@ function ProfileContent() {
                     </div>
 
                     {user.lastActivity && (
-                      <div className="flex items-center text-xs text-gray-600 hover:text-blue-600 transition-colors">
-                        <Activity className="h-4 w-4 mr-2 text-green-500" />
-                        <span className="flex-1">Aktif</span>
-                        <span className="font-medium">
+                      <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                        <Activity style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
+                        <span style={{ flex: 1 }}>Aktif</span>
+                        <span style={{ fontWeight: '500', color: 'var(--color-text)' }}>
                           {new Date(user.lastActivity).toLocaleDateString('id-ID', {
                             day: 'numeric',
                             month: 'short'
@@ -292,408 +438,1011 @@ function ProfileContent() {
                       </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Organizer Status Card */}
-              {user.role === 'ORGANIZER' && (
-                <Card className="border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-up">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center mr-2">
-                        <Shield className="h-4 w-4 text-blue-600" />
+                {/* Organizer Status Card */}
+                {user.role === 'ORGANIZER' && (
+                  <div className="fade-in-up stagger-3" style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '1rem',
+                    padding: '1.5rem',
+                    marginBottom: '1.5rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                    className="interactive"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.borderColor = 'var(--border-default)';
+                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                      <div style={{
+                        width: '2rem',
+                        height: '2rem',
+                        borderRadius: '0.5rem',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: '0.75rem'
+                      }}>
+                        <Shield style={{ width: '1rem', height: '1rem', color: 'var(--color-primary)' }} />
                       </div>
-                      <div>
-                        <CardTitle className="text-sm">Status Organizer</CardTitle>
-                      </div>
+                      <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text)' }}>
+                        Status Organizer
+                      </h3>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center">
+                    <div style={{ textAlign: 'center' }}>
                       {user.verificationStatus === 'APPROVED' && (
-                        <div className="animate-fade-in">
-                          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-2">
-                            <CheckCircle className="h-6 w-6 text-green-600" />
+                        <div>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '3rem',
+                            height: '3rem',
+                            borderRadius: '50%',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            marginBottom: '0.5rem'
+                          }}>
+                            <CheckCircle style={{ width: '1.5rem', height: '1.5rem', color: '#10b981' }} />
                           </div>
-                          <p className="text-sm font-semibold text-green-800">Disetujui</p>
+                          <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#059669' }}>Disetujui</p>
                         </div>
                       )}
                       {user.verificationStatus === 'PENDING' && (
-                        <div className="animate-fade-in">
-                          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-2">
-                            <Clock className="h-6 w-6 text-yellow-600 animate-pulse" />
+                        <div>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '3rem',
+                            height: '3rem',
+                            borderRadius: '50%',
+                            background: 'rgba(251, 191, 36, 0.1)',
+                            marginBottom: '0.5rem'
+                          }}>
+                            <Clock style={{ width: '1.5rem', height: '1.5rem', color: '#f59e0b' }} />
                           </div>
-                          <p className="text-sm font-semibold text-yellow-800">Menunggu</p>
+                          <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#d97706' }}>Menunggu</p>
                         </div>
                       )}
                       {user.verificationStatus === 'REJECTED' && (
-                        <div className="animate-fade-in">
-                          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-2">
-                            <XCircle className="h-6 w-6 text-red-600" />
+                        <div>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '3rem',
+                            height: '3rem',
+                            borderRadius: '50%',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            marginBottom: '0.5rem'
+                          }}>
+                            <XCircle style={{ width: '1.5rem', height: '1.5rem', color: '#ef4444' }} />
                           </div>
-                          <p className="text-sm font-semibold text-red-800">Ditolak</p>
+                          <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#dc2626' }}>Ditolak</p>
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                )}
 
-              {/* Quick Links */}
-              <Card className="border-blue-200 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Menu Cepat</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Link href="/my-registrations" className="flex items-center text-sm text-gray-700 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-all">
-                    <Ticket className="h-4 w-4 mr-2" />
-                    Registrasi Saya
-                  </Link>
-                  <Link href="/my-certificates" className="flex items-center text-sm text-gray-700 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-all">
-                    <Award className="h-4 w-4 mr-2" />
-                    Sertifikat Saya
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-          </aside>
+                {/* Quick Links */}
+                <div className="fade-in-up stagger-4" style={{
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: '1rem',
+                  padding: '1.5rem',
+                  transition: 'all 0.3s ease'
+                }}
+                  className="interactive"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.borderColor = 'var(--border-default)';
+                  }}>
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text)', marginBottom: '1rem' }}>
+                    Menu Cepat
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <Link href="/my-registrations" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.875rem',
+                      color: 'var(--color-text)',
+                      padding: '0.5rem',
+                      borderRadius: '0.5rem',
+                      textDecoration: 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                      className="interactive"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                        e.currentTarget.style.color = 'var(--color-primary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--color-text)';
+                      }}>
+                      <Ticket style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
+                      Registrasi Saya
+                    </Link>
+                    <Link href="/my-certificates" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: '0.875rem',
+                      color: 'var(--color-text)',
+                      padding: '0.5rem',
+                      borderRadius: '0.5rem',
+                      textDecoration: 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                      className="interactive"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                        e.currentTarget.style.color = 'var(--color-primary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--color-text)';
+                      }}>
+                      <Award style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
+                      Sertifikat Saya
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </aside>
 
-          {/* Main Content - Tabs */}
-          <main className="lg:col-span-3">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-6 bg-white border border-gray-200 p-1 rounded-lg shadow-sm">
-                <TabsTrigger
-                  value="profile"
-                  className="bg-white text-gray-700 data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 transition-all duration-300"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Profil
-                </TabsTrigger>
-                <TabsTrigger
-                  value="events"
-                  className="bg-white text-gray-700 data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 transition-all duration-300"
-                >
-                  <Ticket className="h-4 w-4 mr-2" />
-                  Event
-                </TabsTrigger>
-                <TabsTrigger
-                  value="certificates"
-                  className="bg-white text-gray-700 data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 transition-all duration-300"
-                >
-                  <Award className="h-4 w-4 mr-2" />
-                  Sertifikat
-                </TabsTrigger>
-                <TabsTrigger
-                  value="settings"
-                  className="bg-white text-gray-700 data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 hover:bg-gray-50 transition-all duration-300"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Pengaturan
-                </TabsTrigger>
-              </TabsList>
+            {/* Main Content - Tabs */}
+            <main>
+              {/* Tabs Navigation */}
+              <div className="fade-in-up stagger-5" style={{
+                display: 'flex',
+                gap: '0.5rem',
+                marginBottom: '2rem',
+                background: 'var(--color-bg)',
+                border: '1px solid var(--border-default)',
+                borderRadius: '0.75rem',
+                padding: '0.25rem'
+              }}>
+                {[
+                  { id: 'profile', label: 'Profil', icon: User },
+                  { id: 'events', label: 'Event', icon: Ticket },
+                  { id: 'certificates', label: 'Sertifikat', icon: Award },
+                  { id: 'settings', label: 'Pengaturan', icon: Settings }
+                ].map((tab) => {
+                  const Icon = tab.icon
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '0.5rem',
+                        border: 'none',
+                        background: activeTab === tab.id ? 'var(--color-surface)' : 'transparent',
+                        color: activeTab === tab.id ? 'var(--color-text)' : 'var(--color-muted)',
+                        fontSize: '0.875rem',
+                        fontWeight: activeTab === tab.id ? '500' : '400',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      className="interactive"
+                    >
+                      <Icon style={{ width: '1rem', height: '1rem' }} />
+                      {tab.label}
+                    </button>
+                  )
+                })}
+              </div>
 
               {/* Profile Tab */}
-              <TabsContent value="profile" className="animate-fade-in">
-                <Card className="border-blue-200 shadow-lg">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-xl">Informasi Profil</CardTitle>
-                        <CardDescription className="mt-1">
-                          Perbarui informasi pribadi Anda
-                        </CardDescription>
-                      </div>
-                      {!isEditing && (
-                        <Button
-                          onClick={() => setIsEditing(true)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
-                        >
-                          <Edit2 className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                      )}
+              {activeTab === 'profile' && (
+                <div className="fade-in-up stagger-6" style={{
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: '1rem',
+                  padding: '2rem',
+                  transition: 'all 0.3s ease'
+                }}
+                  className="interactive"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-default)';
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                    <div>
+                      <h2 style={{
+                        fontSize: '1.5rem',
+                        fontWeight: '600',
+                        color: 'var(--color-text)',
+                        marginBottom: '0.5rem'
+                      }}>
+                        Informasi Profil
+                      </h2>
+                      <p style={{
+                        fontSize: '0.875rem',
+                        color: 'var(--color-muted)'
+                      }}>
+                        Perbarui informasi pribadi Anda
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 flex items-center">
-                            <User className="h-4 w-4 mr-2 text-blue-600" />
-                            Nama Lengkap
-                          </label>
-                          <Input
-                            {...register('fullName')}
-                            placeholder="John Doe"
-                            error={errors.fullName?.message}
-                            disabled={!isEditing}
-                            required
-                            className={`transition-all ${!isEditing ? 'bg-gray-50' : 'focus:ring-2 focus:ring-blue-500'}`}
-                          />
-                        </div>
+                    {!isEditing && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="btn btn-primary interactive"
+                      >
+                        <Edit2 style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
+                        Edit
+                      </button>
+                    )}
+                  </div>
 
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-blue-600" />
-                            Email
-                          </label>
-                          <Input
-                            value={user.email}
-                            disabled
-                            className="bg-gray-50 cursor-not-allowed"
-                          />
-                          <p className="text-xs text-gray-500">Email tidak dapat diubah</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 flex items-center">
-                            <Phone className="h-4 w-4 mr-2 text-blue-600" />
-                            Nomor Telepon
-                          </label>
-                          <Input
-                            {...register('phoneNumber')}
-                            type="tel"
-                            placeholder="081234567890"
-                            error={errors.phoneNumber?.message}
-                            disabled={!isEditing}
-                            required
-                            className={`transition-all ${!isEditing ? 'bg-gray-50' : 'focus:ring-2 focus:ring-blue-500'}`}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 flex items-center">
-                            <GraduationCap className="h-4 w-4 mr-2 text-blue-600" />
-                            Pendidikan Terakhir
-                          </label>
-                          <Input
-                            {...register('lastEducation')}
-                            placeholder="S1 Teknik Informatika"
-                            error={errors.lastEducation?.message}
-                            disabled={!isEditing}
-                            required
-                            className={`transition-all ${!isEditing ? 'bg-gray-50' : 'focus:ring-2 focus:ring-blue-500'}`}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 flex items-center">
-                          <MapPin className="h-4 w-4 mr-2 text-blue-600" />
-                          Alamat Lengkap
+                  <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '1.5rem'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          color: 'var(--color-text)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <User style={{ width: '1rem', height: '1rem', color: 'var(--color-muted)' }} />
+                          Nama Lengkap
                         </label>
                         <Input
-                          {...register('address')}
-                          placeholder="Jl. Contoh No. 123, Jakarta"
-                          error={errors.address?.message}
+                          {...register('fullName')}
+                          placeholder="John Doe"
+                          error={errors.fullName?.message}
                           disabled={!isEditing}
                           required
-                          className={`transition-all ${!isEditing ? 'bg-gray-50' : 'focus:ring-2 focus:ring-blue-500'}`}
+                          style={{
+                            background: !isEditing ? 'var(--color-surface)' : 'var(--color-bg)',
+                            border: '1px solid var(--border-default)',
+                            borderRadius: '0.5rem',
+                            padding: '0.75rem 1rem',
+                            fontSize: '0.875rem',
+                            color: 'var(--color-text)',
+                            width: '100%'
+                          }}
                         />
                       </div>
 
-                      {isEditing && (
-                        <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleCancel}
-                            disabled={isLoading}
-                            className="hover:bg-gray-100 transition-all"
-                          >
-                            Batal
-                          </Button>
-                          <Button
-                            type="submit"
-                            loading={isLoading}
-                            disabled={!isDirty || isLoading}
-                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
-                          >
-                            <Save className="h-4 w-4 mr-2" />
-                            Simpan
-                          </Button>
-                        </div>
-                      )}
-                    </form>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Events Tab */}
-              <TabsContent value="events" className="animate-fade-in">
-                <Card className="border-blue-200 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl">Event Saya</CardTitle>
-                    <CardDescription>
-                      Daftar event yang Anda ikuti
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-12">
-                      <Ticket className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">Belum ada event yang diikuti</p>
-                      <Link href="/events">
-                        <Button className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
-                          Jelajahi Event
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Certificates Tab */}
-              <TabsContent value="certificates" className="animate-fade-in">
-                <Card className="border-blue-200 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl">Sertifikat Saya</CardTitle>
-                    <CardDescription>
-                      Sertifikat yang telah Anda dapatkan
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-12">
-                      <Award className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">Belum ada sertifikat</p>
-                      <p className="text-sm text-gray-400 mt-2">
-                        Ikuti event untuk mendapatkan sertifikat
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Settings Tab */}
-              <TabsContent value="settings" className="animate-fade-in">
-                <div className="space-y-6">
-                  {/* Security Settings */}
-                  <Card className="border-blue-200 shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center">
-                        <Lock className="h-5 w-5 mr-2 text-blue-600" />
-                        Keamanan
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div>
-                          <p className="font-medium text-sm">Ubah Password</p>
-                          <p className="text-xs text-gray-500">Perbarui password akun Anda</p>
-                        </div>
-                        <Button variant="outline" size="sm" className="hover:bg-blue-50 hover:text-blue-600 hover:border-blue-600 transition-all">
-                          Ubah
-                        </Button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          color: 'var(--color-text)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <Mail style={{ width: '1rem', height: '1rem', color: 'var(--color-muted)' }} />
+                          Email
+                        </label>
+                        <Input
+                          value={user.email}
+                          disabled
+                          style={{
+                            background: 'var(--color-surface)',
+                            border: '1px solid var(--border-default)',
+                            borderRadius: '0.5rem',
+                            padding: '0.75rem 1rem',
+                            fontSize: '0.875rem',
+                            color: 'var(--color-muted)',
+                            width: '100%',
+                            cursor: 'not-allowed'
+                          }}
+                        />
+                        <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>Email tidak dapat diubah</p>
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          color: 'var(--color-text)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <Phone style={{ width: '1rem', height: '1rem', color: 'var(--color-muted)' }} />
+                          Nomor Telepon
+                        </label>
+                        <Input
+                          {...register('phoneNumber')}
+                          type="tel"
+                          placeholder="081234567890"
+                          error={errors.phoneNumber?.message}
+                          disabled={!isEditing}
+                          required
+                          style={{
+                            background: !isEditing ? 'var(--color-surface)' : 'var(--color-bg)',
+                            border: '1px solid var(--border-default)',
+                            borderRadius: '0.5rem',
+                            padding: '0.75rem 1rem',
+                            fontSize: '0.875rem',
+                            color: 'var(--color-text)',
+                            width: '100%'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label style={{
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          color: 'var(--color-text)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <GraduationCap style={{ width: '1rem', height: '1rem', color: 'var(--color-muted)' }} />
+                          Pendidikan Terakhir
+                        </label>
+                        <Input
+                          {...register('lastEducation')}
+                          placeholder="S1 Teknik Informatika"
+                          error={errors.lastEducation?.message}
+                          disabled={!isEditing}
+                          required
+                          style={{
+                            background: !isEditing ? 'var(--color-surface)' : 'var(--color-bg)',
+                            border: '1px solid var(--border-default)',
+                            borderRadius: '0.5rem',
+                            padding: '0.75rem 1rem',
+                            fontSize: '0.875rem',
+                            color: 'var(--color-text)',
+                            width: '100%'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <label style={{
+                        fontSize: '0.875rem',
+                        fontWeight: '500',
+                        color: 'var(--color-text)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}>
+                        <MapPin style={{ width: '1rem', height: '1rem', color: 'var(--color-muted)' }} />
+                        Alamat Lengkap
+                      </label>
+                      <Input
+                        {...register('address')}
+                        placeholder="Jl. Contoh No. 123, Jakarta"
+                        error={errors.address?.message}
+                        disabled={!isEditing}
+                        required
+                        style={{
+                          background: !isEditing ? 'var(--color-surface)' : 'var(--color-bg)',
+                          border: '1px solid var(--border-default)',
+                          borderRadius: '0.5rem',
+                          padding: '0.75rem 1rem',
+                          fontSize: '0.875rem',
+                          color: 'var(--color-text)',
+                          width: '100%'
+                        }}
+                      />
+                    </div>
+
+                    {isEditing && (
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: '0.75rem',
+                        paddingTop: '1.5rem',
+                        borderTop: '1px solid var(--border-default)'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={handleCancel}
+                          disabled={isLoading}
+                          style={{
+                            padding: '0.75rem 1.5rem',
+                            border: '1px solid var(--border-default)',
+                            borderRadius: '0.5rem',
+                            background: 'transparent',
+                            color: 'var(--color-text)',
+                            fontSize: '0.875rem',
+                            fontWeight: '500',
+                            cursor: isLoading ? 'not-allowed' : 'pointer',
+                            opacity: isLoading ? 0.5 : 1,
+                            transition: 'all 0.2s ease'
+                          }}
+                          className="interactive"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={!isDirty || isLoading}
+                          className="btn btn-primary interactive"
+                          style={{
+                            opacity: (!isDirty || isLoading) ? 0.6 : 1,
+                            cursor: (!isDirty || isLoading) ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          <Save style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
+                          {isLoading ? 'Menyimpan...' : 'Simpan'}
+                        </button>
+                      </div>
+                    )}
+                  </form>
+                </div>
+              )}
+
+              {/* Events Tab */}
+              {activeTab === 'events' && (
+                <div className="fade-in-up stagger-6" style={{
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: '1rem',
+                  padding: '3rem',
+                  textAlign: 'center',
+                  transition: 'all 0.3s ease'
+                }}
+                  className="interactive"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-default)';
+                  }}>
+                  <Ticket style={{ width: '4rem', height: '4rem', color: 'var(--color-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
+                  <h3 style={{
+                    fontSize: '1.25rem',
+                    fontWeight: '600',
+                    color: 'var(--color-text)',
+                    marginBottom: '0.5rem'
+                  }}>
+                    Belum Ada Event
+                  </h3>
+                  <p style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--color-muted)',
+                    marginBottom: '1.5rem'
+                  }}>
+                    Belum ada event yang diikuti
+                  </p>
+                  <Link href="/events">
+                    <button className="btn btn-primary interactive">
+                      Jelajahi Event
+                    </button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Certificates Tab */}
+              {activeTab === 'certificates' && (
+                <div className="fade-in-up stagger-6" style={{
+                  background: 'var(--color-bg)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: '1rem',
+                  padding: '3rem',
+                  textAlign: 'center',
+                  transition: 'all 0.3s ease'
+                }}
+                  className="interactive"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-default)';
+                  }}>
+                  <Award style={{ width: '4rem', height: '4rem', color: 'var(--color-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
+                  <h3 style={{
+                    fontSize: '1.25rem',
+                    fontWeight: '600',
+                    color: 'var(--color-text)',
+                    marginBottom: '0.5rem'
+                  }}>
+                    Belum Ada Sertifikat
+                  </h3>
+                  <p style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--color-muted)',
+                    marginBottom: '0.5rem'
+                  }}>
+                    Belum ada sertifikat
+                  </p>
+                  <p style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--color-muted)',
+                    marginBottom: '1.5rem'
+                  }}>
+                    Ikuti event untuk mendapatkan sertifikat
+                  </p>
+                </div>
+              )}
+
+              {/* Settings Tab */}
+              {activeTab === 'settings' && (
+                <div className="fade-in-up stagger-6" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  {/* Security Settings */}
+                  <div style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '1rem',
+                    padding: '2rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                    className="interactive"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-default)';
+                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
+                      <div style={{
+                        width: '2.5rem',
+                        height: '2.5rem',
+                        borderRadius: '0.75rem',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: '1rem'
+                      }}>
+                        <Lock style={{ width: '1.25rem', height: '1.25rem', color: 'var(--color-primary)' }} />
+                      </div>
+                      <h3 style={{
+                        fontSize: '1.125rem',
+                        fontWeight: '600',
+                        color: 'var(--color-text)'
+                      }}>
+                        Keamanan
+                      </h3>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '1rem',
+                        background: 'var(--color-surface)',
+                        borderRadius: '0.5rem',
+                        transition: 'all 0.2s ease'
+                      }}
+                        className="interactive"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'var(--color-surface)';
+                        }}>
                         <div>
-                          <p className="font-medium text-sm">Verifikasi Email</p>
-                          <p className="text-xs text-gray-500">
+                          <p style={{
+                            fontSize: '0.875rem',
+                            fontWeight: '500',
+                            color: 'var(--color-text)',
+                            marginBottom: '0.25rem'
+                          }}>
+                            Ubah Password
+                          </p>
+                          <p style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--color-muted)'
+                          }}>
+                            Perbarui password akun Anda
+                          </p>
+                        </div>
+                        <button style={{
+                          padding: '0.5rem 1rem',
+                          border: '1px solid var(--border-default)',
+                          borderRadius: '0.5rem',
+                          background: 'transparent',
+                          color: 'var(--color-text)',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                          className="interactive"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                            e.currentTarget.style.borderColor = 'var(--color-primary)';
+                            e.currentTarget.style.color = 'var(--color-primary)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.borderColor = 'var(--border-default)';
+                            e.currentTarget.style.color = 'var(--color-text)';
+                          }}>
+                          Ubah
+                        </button>
+                      </div>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '1rem',
+                        background: 'var(--color-surface)',
+                        borderRadius: '0.5rem',
+                        transition: 'all 0.2s ease'
+                      }}
+                        className="interactive"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'var(--color-surface)';
+                        }}>
+                        <div>
+                          <p style={{
+                            fontSize: '0.875rem',
+                            fontWeight: '500',
+                            color: 'var(--color-text)',
+                            marginBottom: '0.25rem'
+                          }}>
+                            Verifikasi Email
+                          </p>
+                          <p style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--color-muted)'
+                          }}>
                             {user.emailVerified ? 'Email sudah terverifikasi' : 'Verifikasi email Anda'}
                           </p>
                         </div>
                         {user.emailVerified ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <CheckCircle style={{ width: '1.25rem', height: '1.25rem', color: '#10b981' }} />
                         ) : (
-                          <Button variant="outline" size="sm" className="hover:bg-blue-50 hover:text-blue-600 hover:border-blue-600 transition-all">
+                          <button style={{
+                            padding: '0.5rem 1rem',
+                            border: '1px solid var(--border-default)',
+                            borderRadius: '0.5rem',
+                            background: 'transparent',
+                            color: 'var(--color-text)',
+                            fontSize: '0.875rem',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                            className="interactive"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                              e.currentTarget.style.borderColor = 'var(--color-primary)';
+                              e.currentTarget.style.color = 'var(--color-primary)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'transparent';
+                              e.currentTarget.style.borderColor = 'var(--border-default)';
+                              e.currentTarget.style.color = 'var(--color-text)';
+                            }}>
                             Verifikasi
-                          </Button>
+                          </button>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
                   {/* Notification Settings */}
-                  <Card className="border-blue-200 shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center">
-                        <Bell className="h-5 w-5 mr-2 text-blue-600" />
+                  <div style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '1rem',
+                    padding: '2rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                    className="interactive"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-default)';
+                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
+                      <div style={{
+                        width: '2.5rem',
+                        height: '2.5rem',
+                        borderRadius: '0.75rem',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: '1rem'
+                      }}>
+                        <Bell style={{ width: '1.25rem', height: '1.25rem', color: 'var(--color-primary)' }} />
+                      </div>
+                      <h3 style={{
+                        fontSize: '1.125rem',
+                        fontWeight: '600',
+                        color: 'var(--color-text)'
+                      }}>
                         Notifikasi
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      </h3>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '1rem',
+                        background: 'var(--color-surface)',
+                        borderRadius: '0.5rem'
+                      }}>
                         <div>
-                          <p className="font-medium text-sm">Email Notifikasi</p>
-                          <p className="text-xs text-gray-500">Terima notifikasi via email</p>
+                          <p style={{
+                            fontSize: '0.875rem',
+                            fontWeight: '500',
+                            color: 'var(--color-text)',
+                            marginBottom: '0.25rem'
+                          }}>
+                            Email Notifikasi
+                          </p>
+                          <p style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--color-muted)'
+                          }}>
+                            Terima notifikasi via email
+                          </p>
                         </div>
-                        <input type="checkbox" className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500" defaultChecked />
+                        <input
+                          type="checkbox"
+                          defaultChecked
+                          style={{
+                            width: '1.25rem',
+                            height: '1.25rem',
+                            accentColor: 'var(--color-primary)',
+                            cursor: 'pointer'
+                          }}
+                        />
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '1rem',
+                        background: 'var(--color-surface)',
+                        borderRadius: '0.5rem'
+                      }}>
                         <div>
-                          <p className="font-medium text-sm">Event Reminder</p>
-                          <p className="text-xs text-gray-500">Pengingat event yang akan datang</p>
+                          <p style={{
+                            fontSize: '0.875rem',
+                            fontWeight: '500',
+                            color: 'var(--color-text)',
+                            marginBottom: '0.25rem'
+                          }}>
+                            Event Reminder
+                          </p>
+                          <p style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--color-muted)'
+                          }}>
+                            Pengingat event yang akan datang
+                          </p>
                         </div>
-                        <input type="checkbox" className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500" defaultChecked />
+                        <input
+                          type="checkbox"
+                          defaultChecked
+                          style={{
+                            width: '1.25rem',
+                            height: '1.25rem',
+                            accentColor: 'var(--color-primary)',
+                            cursor: 'pointer'
+                          }}
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
                   {/* Privacy */}
-                  <Card className="border-blue-200 shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center">
-                        <Eye className="h-5 w-5 mr-2 text-blue-600" />
-                        Privasi
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xs text-gray-600 space-y-2">
-                        <p className="flex items-start">
-                          <span className="text-blue-600 mr-2">•</span>
-                          Email tidak dapat diubah setelah registrasi
-                        </p>
-                        <p className="flex items-start">
-                          <span className="text-blue-600 mr-2">•</span>
-                          Semua perubahan profil akan tercatat dalam sistem
-                        </p>
-                        <p className="flex items-start">
-                          <span className="text-blue-600 mr-2">•</span>
-                          Data Anda dilindungi sesuai kebijakan privasi
-                        </p>
+                  <div style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '1rem',
+                    padding: '2rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                    className="interactive"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-default)';
+                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem' }}>
+                      <div style={{
+                        width: '2.5rem',
+                        height: '2.5rem',
+                        borderRadius: '0.75rem',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: '1rem'
+                      }}>
+                        <Eye style={{ width: '1.25rem', height: '1.25rem', color: 'var(--color-primary)' }} />
                       </div>
-                    </CardContent>
-                  </Card>
+                      <h3 style={{
+                        fontSize: '1.125rem',
+                        fontWeight: '600',
+                        color: 'var(--color-text)'
+                      }}>
+                        Privasi
+                      </h3>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem',
+                      fontSize: '0.75rem',
+                      color: 'var(--color-muted)'
+                    }}>
+                      <p style={{ display: 'flex', alignItems: 'start' }}>
+                        <span style={{ color: 'var(--color-primary)', marginRight: '0.5rem' }}>•</span>
+                        Email tidak dapat diubah setelah registrasi
+                      </p>
+                      <p style={{ display: 'flex', alignItems: 'start' }}>
+                        <span style={{ color: 'var(--color-primary)', marginRight: '0.5rem' }}>•</span>
+                        Semua perubahan profil akan tercatat dalam sistem
+                      </p>
+                      <p style={{ display: 'flex', alignItems: 'start' }}>
+                        <span style={{ color: 'var(--color-primary)', marginRight: '0.5rem' }}>•</span>
+                        Data Anda dilindungi sesuai kebijakan privasi
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </TabsContent>
-            </Tabs>
-          </main>
+              )}
+            </main>
+          </div>
         </div>
       </div>
 
       <style jsx global>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        :root {
+          --color-bg: #ffffff;
+          --color-surface: #f8f9fa;
+          --color-text: #1a1a1a;
+          --color-muted: #6b7280;
+          --color-primary: #3b82f6;
+          --border-default: #e5e7eb;
+          --card-border: #d1d5db;
         }
 
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
         }
 
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+          background: var(--color-bg);
+          color: var(--color-text);
+          line-height: 1.6;
         }
 
-        .animate-slide-up {
-          animation: slide-up 0.6s ease-out;
+        .custom-cursor {
+          position: fixed;
+          width: 20px;
+          height: 20px;
+          background: var(--color-primary);
+          border-radius: 50%;
+          pointer-events: none;
+          z-index: 9999;
+          transition: transform 0.1s ease;
+          opacity: 0.8;
+        }
+
+        .custom-cursor.hover {
+          transform: scale(1.5);
+        }
+
+        .custom-cursor.text {
+          transform: scale(0.5);
+        }
+
+        .bg-grid {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-image: 
+            linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+          background-size: 20px 20px;
+          pointer-events: none;
+        }
+
+        .fade-in-up {
+          opacity: 0;
+          transform: translateY(20px);
+          transition: all 0.6s ease;
+        }
+
+        .fade-in-up.visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        .stagger-1 { transition-delay: 0.1s; }
+        .stagger-2 { transition-delay: 0.2s; }
+        .stagger-3 { transition-delay: 0.3s; }
+        .stagger-4 { transition-delay: 0.4s; }
+        .stagger-5 { transition-delay: 0.5s; }
+        .stagger-6 { transition-delay: 0.6s; }
+        .stagger-7 { transition-delay: 0.7s; }
+
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.75rem 1.5rem;
+          border: none;
+          border-radius: 0.5rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          text-decoration: none;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+          background: var(--color-primary);
+          color: white;
+        }
+
+        .btn-primary:hover {
+          background: #2563eb;
+          transform: translateY(-1px);
+        }
+
+        .interactive {
+          transition: all 0.3s ease;
+        }
+
+        .interactive:hover {
+          transform: translateY(-1px);
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 1024px) {
+          .container > div:first-of-type {
+            grid-template-columns: 1fr !important;
+          }
         }
       `}</style>
-    </div>
+    </>
   )
 }
 
