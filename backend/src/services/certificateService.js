@@ -347,16 +347,31 @@ const getUserCertificates = async (participantId, filters = {}) => {
       const now = new Date();
       let eventEndDateTime;
 
-      if (reg.event.eventEndDate && reg.event.eventEndTime) {
-        // Multiple days event
-        const [hours, minutes] = reg.event.eventEndTime.split(':').map(Number);
-        eventEndDateTime = new Date(reg.event.eventEndDate);
-        eventEndDateTime.setHours(hours, minutes || 0, 0, 0);
-      } else {
-        // Single day event - eventDate + 1 day
-        const [hours, minutes] = reg.event.eventTime.split(':').map(Number);
-        eventEndDateTime = new Date(reg.event.eventDate);
-        eventEndDateTime.setHours(hours, minutes || 0, 0, 0);
+      try {
+        if (reg.event?.eventEndDate && reg.event?.eventEndTime) {
+          // Multiple days event
+          const timeParts = reg.event.eventEndTime.split(':');
+          const hours = parseInt(timeParts[0]) || 0;
+          const minutes = parseInt(timeParts[1]) || 0;
+          eventEndDateTime = new Date(reg.event.eventEndDate);
+          eventEndDateTime.setHours(hours, minutes, 0, 0);
+        } else if (reg.event?.eventDate && reg.event?.eventTime) {
+          // Single day event - eventDate + 1 day
+          const timeParts = reg.event.eventTime.split(':');
+          const hours = parseInt(timeParts[0]) || 0;
+          const minutes = parseInt(timeParts[1]) || 0;
+          eventEndDateTime = new Date(reg.event.eventDate);
+          eventEndDateTime.setHours(hours, minutes, 0, 0);
+          eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
+        } else {
+          // Fallback: use eventDate + 1 day
+          eventEndDateTime = new Date(reg.event?.eventDate || new Date());
+          eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
+        }
+      } catch (error) {
+        logger.error('Error calculating eventEndDateTime:', error);
+        // Fallback: use eventDate + 1 day
+        eventEndDateTime = new Date(reg.event?.eventDate || new Date());
         eventEndDateTime.setDate(eventEndDateTime.getDate() + 1);
       }
 
