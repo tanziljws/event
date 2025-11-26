@@ -37,13 +37,17 @@ const getDashboardUrl = (user: any) => {
     case 'SUPER_ADMIN':
       return '/admin/dashboard'
     case 'CS_HEAD':
+      return '/department/customer_service/dashboard'
     case 'OPS_HEAD':
+      return '/department/operations/dashboard'
     case 'FINANCE_HEAD':
-      return `/department/${role.split('_')[0].toLowerCase()}/dashboard`
+      return '/department/finance/dashboard'
     case 'CS_AGENT':
+      return '/department/customer_service/dashboard'
     case 'OPS_AGENT':
+      return '/department/operations/dashboard'
     case 'FINANCE_AGENT':
-      return `/department/${role.split('_')[0].toLowerCase()}/dashboard`
+      return '/department/finance/dashboard'
     case 'ORGANIZER':
       // If organizer is not approved, treat as participant
       return verificationStatus === 'APPROVED' ? '/organizer' : '/dashboard'

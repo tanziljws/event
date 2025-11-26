@@ -1137,49 +1137,33 @@ const getOrganizersForReview = async (filters = {}, userRole = null, userId = nu
               nik: true,
               personalAddress: true,
               personalPhone: true,
-              portfolio: true,
-              socialMedia: true,
               documents: true // Include documents
             }
           },
           communityProfile: {
             select: {
               communityName: true,
-              communityType: true,
               communityAddress: true,
               communityPhone: true,
               contactPerson: true,
-              legalDocument: true,
-              website: true,
-              socialMedia: true,
               documents: true // Include documents
             }
           },
           businessProfile: {
             select: {
               businessName: true,
-              businessType: true,
               businessAddress: true,
               businessPhone: true,
               npwp: true,
-              legalDocument: true,
-              logo: true,
-              socialMedia: true,
-              portfolio: true,
               documents: true // Include documents
             }
           },
           institutionProfile: {
             select: {
               institutionName: true,
-              institutionType: true,
               institutionAddress: true,
               institutionPhone: true,
               contactPerson: true,
-              akta: true,
-              siup: true,
-              website: true,
-              socialMedia: true,
               documents: true // Include documents
             }
           },
