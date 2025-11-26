@@ -223,6 +223,8 @@ export default function EventDetailPage() {
             alert('Password is required to register for this private event.')
             return
           }
+          // Trim whitespace from password
+          privatePassword = privatePassword.trim()
         }
 
         const response = await ApiService.registerForEvent(event.id, { privatePassword })
@@ -247,6 +249,8 @@ export default function EventDetailPage() {
           setRegistering(false)
           return
         }
+        // Trim whitespace from password
+        privatePasswordForPaid = privatePasswordForPaid.trim()
         setPrivatePassword(privatePasswordForPaid)
       }
 
