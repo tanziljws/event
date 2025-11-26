@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { LoadingSpinner } from '@/components/ui/loading'
 import SearchModal from '@/components/search-modal'
 import NotificationBell from '@/components/NotificationBell'
+import { getImageUrl } from '@/lib/image-utils'
 
 // Helper function to get effective role (check temporaryRole from metadata)
 const getEffectiveRole = (user: any) => {
@@ -110,6 +111,17 @@ const getDepartmentName = (department: string) => {
     default:
       return department
   }
+}
+
+// Helper function to get user initials
+const getUserInitials = (fullName: string) => {
+  if (!fullName) return 'U'
+  return fullName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
 }
 
 export default function Navbar() {
@@ -379,10 +391,30 @@ export default function Navbar() {
                       onClick={() => setShowUserDropdown(!showUserDropdown)}
                       className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-300"
                     >
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 font-semibold text-sm">
-                          {user.fullName?.charAt(0)?.toUpperCase()}
-                        </span>
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden relative">
+                        {user.profilePicture ? (
+                          <img
+                            src={getImageUrl(user.profilePicture)}
+                            alt={user.fullName}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to initials if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                const span = document.createElement('span');
+                                span.className = 'text-blue-600 font-semibold text-sm';
+                                span.textContent = getUserInitials(user.fullName);
+                                parent.appendChild(span);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <span className="text-blue-600 font-semibold text-sm">
+                            {getUserInitials(user.fullName)}
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-left">
                         <div className="text-gray-900 font-semibold">{user.fullName}</div>
@@ -578,10 +610,30 @@ export default function Navbar() {
                     )}
                     <div className="px-4 py-4 border-t border-blue-200 bg-white/50 rounded-xl mx-2">
                       <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-semibold text-lg">
-                            {user.fullName?.charAt(0)?.toUpperCase()}
-                          </span>
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden relative">
+                          {user.profilePicture ? (
+                            <img
+                              src={getImageUrl(user.profilePicture)}
+                              alt={user.fullName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to initials if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  const span = document.createElement('span');
+                                  span.className = 'text-blue-600 font-semibold text-lg';
+                                  span.textContent = getUserInitials(user.fullName);
+                                  parent.appendChild(span);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="text-blue-600 font-semibold text-lg">
+                              {getUserInitials(user.fullName)}
+                            </span>
+                          )}
                         </div>
                         <div>
                           <div className="text-sm font-semibold text-gray-900">{user.fullName}</div>
