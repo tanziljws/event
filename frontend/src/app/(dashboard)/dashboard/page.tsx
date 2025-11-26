@@ -343,7 +343,7 @@ function DashboardContent() {
               </div>
             </div>
 
-            {/* Right Side - Event Terbaru */}
+            {/* Right Side - Profil Ringkas */}
             <div className="fade-in-up stagger-5">
               <h2 style={{
                 fontSize: '1.5rem',
@@ -351,145 +351,170 @@ function DashboardContent() {
                 marginBottom: '2rem',
                 color: 'var(--color-text)'
               }}>
-                Event Terbaru
+                Profil Ringkas
               </h2>
 
-              {isLoadingEvent ? (
-                <div style={{
-                  background: 'var(--color-bg)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '1rem',
-                  padding: '2rem'
+              <div style={{
+                background: 'var(--color-bg)',
+                border: '1px solid var(--border-default)',
+                borderRadius: '1rem',
+                padding: '2rem',
+                transition: 'all 0.3s ease'
+              }}
+                className="interactive"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.borderColor = 'var(--color-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'var(--border-default)';
+                }}>
+                {/* Avatar & Name */}
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  marginBottom: '1.5rem',
+                  paddingBottom: '1.5rem',
+                  borderBottom: '1px solid var(--border-default)'
                 }}>
                   <div style={{
-                    height: '200px',
-                    background: 'var(--color-surface)',
-                    borderRadius: '0.5rem',
-                    marginBottom: '1.5rem',
-                    animation: 'pulse 2s infinite'
-                  }} />
-                  <div style={{
-                    height: '1.5rem',
-                    background: 'var(--color-surface)',
-                    borderRadius: '0.25rem',
-                    marginBottom: '1rem',
-                    animation: 'pulse 2s infinite'
-                  }} />
-                  <div style={{
-                    height: '1rem',
-                    background: 'var(--color-surface)',
-                    borderRadius: '0.25rem',
-                    marginBottom: '1.5rem',
-                    animation: 'pulse 2s infinite'
-                  }} />
-                  <div style={{
-                    height: '3rem',
-                    background: 'var(--color-surface)',
-                    borderRadius: '0.5rem',
-                    animation: 'pulse 2s infinite'
-                  }} />
-                </div>
-              ) : latestEvent ? (
-                <div style={{
-                  background: 'var(--color-bg)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '1rem',
-                  padding: '2rem',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer'
-                }}
-                  className="interactive"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.borderColor = 'var(--color-primary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.borderColor = 'var(--border-default)';
+                    width: '4rem',
+                    height: '4rem',
+                    background: 'linear-gradient(135deg, var(--color-primary) 0%, #8b5cf6 100%)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: '1rem',
+                    fontSize: '1.5rem',
+                    fontWeight: '600',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
                   }}>
-                  <div style={{ marginBottom: '1.5rem' }}>
+                    {user?.fullName?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div style={{ flex: 1 }}>
                     <h3 style={{
                       fontSize: '1.25rem',
                       fontWeight: '600',
                       color: 'var(--color-text)',
-                      marginBottom: '0.5rem'
+                      marginBottom: '0.25rem'
                     }}>
-                      {latestEvent.title}
+                      {user?.fullName || 'User'}
                     </h3>
                     <p style={{
                       fontSize: '0.875rem',
                       color: 'var(--color-muted)',
-                      lineHeight: '1.5'
+                      marginBottom: '0.5rem'
                     }}>
-                      {latestEvent.description}
+                      {user?.email || 'email@example.com'}
                     </p>
+                    <span style={{
+                      padding: '0.25rem 0.75rem',
+                      fontSize: '0.75rem',
+                      borderRadius: '9999px',
+                      background: 'var(--color-primary)',
+                      color: 'white',
+                      fontWeight: '500',
+                      display: 'inline-block'
+                    }}>
+                      Peserta
+                    </span>
                   </div>
+                </div>
 
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <Calendar style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: 'var(--color-primary)' }} />
-                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-                        {new Date(latestEvent.eventDate).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <Clock style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: 'var(--color-primary)' }} />
-                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-                        {latestEvent.eventTime} WIB
-                      </span>
-                    </div>
+                {/* Quick Stats */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '0.75rem',
+                    padding: '0.75rem',
+                    background: 'var(--color-surface)',
+                    borderRadius: '0.5rem'
+                  }}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <Users style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: 'var(--color-primary)' }} />
-                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-                        {latestEvent.maxParticipants} Peserta
-                      </span>
+                      <Ticket style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: 'var(--color-primary)' }} />
+                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Pendaftaran</span>
                     </div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text)' }}>
+                      {userStats.totalRegistrations}
+                    </span>
                   </div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '0.75rem',
+                    padding: '0.75rem',
+                    background: 'var(--color-surface)',
+                    borderRadius: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <Award style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: '#8b5cf6' }} />
+                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Sertifikat</span>
+                    </div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text)' }}>
+                      {userStats.totalCertificates}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem',
+                    background: 'var(--color-surface)',
+                    borderRadius: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <Users style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: '#10b981' }} />
+                      <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>Event Dihadiri</span>
+                    </div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text)' }}>
+                      {userStats.attendedEvents}
+                    </span>
+                  </div>
+                </div>
 
-                  <Link href={`/events/${latestEvent.id}`}>
-                    <button className="btn btn-primary interactive" style={{ width: '100%', justifyContent: 'center' }}>
-                      <span>Lihat Detail Event</span>
-                      <ArrowRight style={{ width: '1rem', height: '1rem', marginLeft: '0.5rem' }} />
-                    </button>
-                  </Link>
-                </div>
-              ) : (
+                {/* Status Email */}
                 <div style={{
-                  background: 'var(--color-bg)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '1rem',
-                  padding: '2rem',
-                  textAlign: 'center'
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '1.5rem',
+                  padding: '0.75rem',
+                  background: user?.emailVerified ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                  borderRadius: '0.5rem',
+                  border: `1px solid ${user?.emailVerified ? '#10b981' : '#f59e0b'}`
                 }}>
-                  <Calendar style={{ width: '3rem', height: '3rem', color: 'var(--color-muted)', margin: '0 auto 1rem' }} />
-                  <h3 style={{
-                    fontSize: '1.25rem',
-                    fontWeight: '600',
-                    color: 'var(--color-text)',
-                    marginBottom: '0.5rem'
-                  }}>
-                    Belum Ada Event
-                  </h3>
-                  <p style={{
-                    fontSize: '0.875rem',
-                    color: 'var(--color-muted)',
-                    marginBottom: '1.5rem',
-                    lineHeight: '1.5'
-                  }}>
-                    Saat ini belum ada event yang tersedia. Silakan cek kembali nanti.
-                  </p>
-                  <Link href="/events">
-                    <button className="btn btn-primary interactive" style={{ width: '100%', justifyContent: 'center' }}>
-                      <span>Lihat Semua Event</span>
-                      <ArrowRight style={{ width: '1rem', height: '1rem', marginLeft: '0.5rem' }} />
-                    </button>
-                  </Link>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <Shield style={{ 
+                      width: '1rem', 
+                      height: '1rem', 
+                      marginRight: '0.5rem', 
+                      color: user?.emailVerified ? '#10b981' : '#f59e0b' 
+                    }} />
+                    <span style={{ 
+                      fontSize: '0.875rem', 
+                      color: 'var(--color-text)',
+                      fontWeight: '500'
+                    }}>
+                      Email {user?.emailVerified ? 'Terverifikasi' : 'Belum Terverifikasi'}
+                    </span>
+                  </div>
                 </div>
-              )}
+
+                {/* Action Button */}
+                <Link href="/profile">
+                  <button className="btn btn-primary interactive" style={{ width: '100%', justifyContent: 'center' }}>
+                    <Settings style={{ width: '1rem', height: '1rem', marginRight: '0.5rem' }} />
+                    <span>Kelola Profil</span>
+                    <ArrowRight style={{ width: '1rem', height: '1rem', marginLeft: '0.5rem' }} />
+                  </button>
+                </Link>
+              </div>
             </div>
           </div>
 
