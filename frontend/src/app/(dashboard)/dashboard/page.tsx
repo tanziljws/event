@@ -419,9 +419,13 @@ function DashboardContent() {
                     <p style={{
                       fontSize: '0.875rem',
                       color: 'var(--color-muted)',
-                      lineHeight: '1.5'
+                      lineHeight: '1.5',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
                     }}>
-                      {latestEvent.description}
+                      {latestEvent.description || 'Tidak ada deskripsi'}
                     </p>
                   </div>
 
@@ -442,12 +446,20 @@ function DashboardContent() {
                         {latestEvent.eventTime} WIB
                       </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
                       <Users style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: 'var(--color-primary)' }} />
                       <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
-                        {latestEvent.maxParticipants} Peserta
+                        {latestEvent.location || 'Lokasi belum ditentukan'}
                       </span>
                     </div>
+                    {latestEvent.maxParticipants && (
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <TrendingUp style={{ width: '1rem', height: '1rem', marginRight: '0.5rem', color: 'var(--color-primary)' }} />
+                        <span style={{ fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+                          Maks. {latestEvent.maxParticipants} Peserta
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <Link href={`/events/${latestEvent.id}`}>
@@ -1031,3 +1043,4 @@ export default function DashboardPage() {
     </ProtectedRoute>
   )
 }
+
