@@ -27,6 +27,7 @@ export default function MyRegistrationsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showTicketModal, setShowTicketModal] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState<{ qrCodeUrl: string, eventTitle: string, registrationToken: string, ticketColor?: string, eventDate?: string, eventTime?: string } | null>(null)
+  const [qrCodeError, setQrCodeError] = useState(false)
   const { user, isAuthenticated, isInitialized } = useAuth()
   const router = useRouter()
 
@@ -131,6 +132,7 @@ export default function MyRegistrationsPage() {
   const handleViewTicket = (qrCodeUrl: string, eventTitle: string, registrationToken: string, ticketColor?: string, eventDate?: string, eventTime?: string) => {
     // Show modal with ticket details
     setSelectedTicket({ qrCodeUrl, eventTitle, registrationToken, ticketColor, eventDate, eventTime })
+    setQrCodeError(false) // Reset error state
     setShowTicketModal(true)
   }
 
@@ -853,12 +855,27 @@ export default function MyRegistrationsPage() {
 
                 {/* QR Code Section */}
                 <div className="flex flex-col items-center justify-center mb-8">
-                  <div className="bg-white p-4 rounded-2xl border-2 border-dashed border-gray-200 shadow-sm mb-4">
-                    <img
-                      src={`${baseUrl}${selectedTicket.qrCodeUrl}`}
-                      alt="Event Ticket QR Code"
-                      className="w-48 h-48"
-                    />
+                  <div className="bg-white p-4 rounded-2xl border-2 border-dashed border-gray-200 shadow-sm mb-4 w-48 h-48 flex items-center justify-center">
+                    {!qrCodeError ? (
+                      <img
+                        src={`${baseUrl}${selectedTicket.qrCodeUrl}`}
+                        alt="Event Ticket QR Code"
+                        className="w-full h-full object-contain"
+                        onError={() => {
+                          console.error('QR Code image failed to load:', `${baseUrl}${selectedTicket.qrCodeUrl}`)
+                          setQrCodeError(true)
+                        }}
+                        onLoad={() => {
+                          setQrCodeError(false)
+                        }}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-center p-4">
+                        <QrCode className="w-24 h-24 text-gray-400 mb-2" />
+                        <p className="text-xs text-gray-500">QR Code tidak dapat dimuat</p>
+                        <p className="text-xs text-gray-400 mt-1">Token: {selectedTicket.registrationToken}</p>
+                      </div>
+                    )}
                   </div>
                   <p className="text-sm text-gray-500 font-medium uppercase tracking-wide">Scan to Check-in</p>
                 </div>
