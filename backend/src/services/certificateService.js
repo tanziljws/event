@@ -228,17 +228,15 @@ const getUserCertificates = async (participantId, filters = {}) => {
       registration: {
         participantId,
         hasAttended: true,
-      },
-      ...(search && {
-        registration: {
+        ...(search ? {
           event: {
             title: {
               contains: search,
               mode: 'insensitive',
             },
           },
-        },
-      }),
+        } : {}),
+      },
     };
 
     // Get pending registrations (hasAttended=true, certificateUrl=null, generateCertificate=true)
@@ -381,8 +379,8 @@ const getUserCertificates = async (participantId, filters = {}) => {
     // Combine and sort
     // Slice to limit after combining
     const allCertificates = [...formattedCertificates, ...formattedPending].sort((a, b) => {
-      const aDate = a.issuedAt ? new Date(a.issuedAt) : (a.eventEndDateTime ? new Date(a.eventEndDateTime) : new Date(a.registration?.attendedAt || 0));
-      const bDate = b.issuedAt ? new Date(b.issuedAt) : (b.eventEndDateTime ? new Date(b.eventEndDateTime) : new Date(b.registration?.attendedAt || 0));
+      const aDate = a.issuedAt ? new Date(a.issuedAt) : (a.eventEndDateTime ? new Date(a.eventEndDateTime) : new Date(a.registration?.attendedAt || a.registration?.attendedAt || 0));
+      const bDate = b.issuedAt ? new Date(b.issuedAt) : (b.eventEndDateTime ? new Date(b.eventEndDateTime) : new Date(b.registration?.attendedAt || b.registration?.attendedAt || 0));
       return sortOrder === 'desc' ? bDate.getTime() - aDate.getTime() : aDate.getTime() - bDate.getTime();
     }).slice(skip, skip + parseInt(limit));
 
