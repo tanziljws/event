@@ -65,7 +65,7 @@ export default function OrganizersPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('PENDING') // Default to PENDING only
-  const [dateFilter, setDateFilter] = useState('TODAY') // Default to today
+  const [dateFilter, setDateFilter] = useState('ALL') // Default to ALL (not TODAY) to show all organizers
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
@@ -85,17 +85,43 @@ export default function OrganizersPage() {
     if (isAuthenticated && user && ['SUPER_ADMIN', 'OPS_HEAD', 'OPS_AGENT'].includes(user.role)) {
       fetchOrganizers()
     }
-  }, [isAuthenticated, user])
+  }, [isAuthenticated, user, statusFilter, dateFilter])
 
   const fetchOrganizers = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const response = await ApiService.getOrganizersForReview({ limit: 100 })
+      // Build query params
+      const params: { limit?: number; status?: string } = { limit: 100 }
+      if (statusFilter !== 'ALL') {
+        params.status = statusFilter
+      }
+      
+      const response = await ApiService.getOrganizersForReview(params)
       
       if (response.success && response.data.organizers) {
-        setOrganizers(response.data.organizers)
+        // Apply date filter on frontend (since backend doesn't support date filtering yet)
+        let filtered = response.data.organizers
+        if (dateFilter !== 'ALL') {
+          filtered = filtered.filter((org: Organizer) => {
+            const organizerDate = new Date(org.createdAt)
+            const now = new Date()
+            
+            switch (dateFilter) {
+              case 'TODAY':
+                return organizerDate.toDateString() === now.toDateString()
+              case 'THIS_WEEK':
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+                return organizerDate >= weekAgo
+              case 'THIS_MONTH':
+                return organizerDate.getMonth() === now.getMonth() && organizerDate.getFullYear() === now.getFullYear()
+              default:
+                return true
+            }
+          })
+        }
+        setOrganizers(filtered)
       } else {
         setError('Failed to fetch organizers')
       }
@@ -174,36 +200,15 @@ export default function OrganizersPage() {
     }
   }
 
-  // Helper function to check if organizer matches date filter
-  const matchesDateFilter = (organizer: Organizer) => {
-    const organizerDate = new Date(organizer.createdAt)
-    const now = new Date()
-    
-    switch (dateFilter) {
-      case 'TODAY':
-        return organizerDate.toDateString() === now.toDateString()
-      case 'THIS_WEEK':
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        return organizerDate >= weekAgo
-      case 'THIS_MONTH':
-        return organizerDate.getMonth() === now.getMonth() && organizerDate.getFullYear() === now.getFullYear()
-      case 'ALL':
-        return true
-      default:
-        return true
-    }
-  }
-
+  // Filter organizers by search term only (date and status already filtered in fetchOrganizers)
   const filteredOrganizers = organizers.filter(organizer => {
     const businessName = getBusinessName(organizer)
-    const matchesSearch = organizer.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = searchTerm === '' || 
+                         organizer.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          organizer.email.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesStatus = statusFilter === 'ALL' || organizer.verificationStatus === statusFilter
-    const matchesDate = matchesDateFilter(organizer)
-    
-    return matchesSearch && matchesStatus && matchesDate
+    return matchesSearch
   })
 
   if (!isInitialized || loading) {
