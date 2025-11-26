@@ -246,7 +246,7 @@ const createEvent = async (eventData, creatorId, creatorRole = 'ADMIN') => {
         galleryUrls,
         generateCertificate,
         isPrivate: isPrivate || false,
-        privatePassword: isPrivate ? privatePassword : null,
+        privatePassword: isPrivate ? (privatePassword ? privatePassword.trim() : null) : null,
         hasMultipleTicketTypes: hasMultipleTicketTypes || false,
         status: eventStatus,
         platformFee,
@@ -795,15 +795,23 @@ const updateEvent = async (eventId, eventData, adminId) => {
       }
     }
 
+    // Trim privatePassword if provided
+    const updateData = {
+      ...eventData,
+      eventDate: eventData.eventDate ? new Date(eventData.eventDate) : undefined,
+      registrationDeadline: eventData.registrationDeadline
+        ? new Date(eventData.registrationDeadline)
+        : undefined,
+    };
+    
+    // Trim privatePassword if it's being updated
+    if (updateData.privatePassword !== undefined) {
+      updateData.privatePassword = updateData.privatePassword ? updateData.privatePassword.trim() : null;
+    }
+
     const event = await prisma.event.update({
       where: { id: eventId },
-      data: {
-        ...eventData,
-        eventDate: eventData.eventDate ? new Date(eventData.eventDate) : undefined,
-        registrationDeadline: eventData.registrationDeadline
-          ? new Date(eventData.registrationDeadline)
-          : undefined,
-      },
+      data: updateData,
       include: {
         creator: {
           select: {
