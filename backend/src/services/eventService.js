@@ -1233,7 +1233,14 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId, p
         if (!privatePassword) {
           throw new Error('This is a private event. Password is required to register.');
         }
-        if (event.privatePassword !== privatePassword) {
+        // Trim whitespace from both passwords for comparison
+        const trimmedInputPassword = (privatePassword || '').trim();
+        const trimmedStoredPassword = (event.privatePassword || '').trim();
+        
+        logger.info(`Private event password check (after payment): Event ID: ${eventId}, Input length: ${trimmedInputPassword.length}, Stored length: ${trimmedStoredPassword.length}`);
+        
+        if (trimmedStoredPassword !== trimmedInputPassword) {
+          logger.warn(`Password mismatch for event ${eventId} (after payment): Input="${trimmedInputPassword}", Stored="${trimmedStoredPassword}"`);
           throw new Error('Invalid password for private event.');
         }
       }
