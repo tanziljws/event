@@ -1174,8 +1174,11 @@ export class ApiService {
   }
 
   // Register for event after payment
-  static async registerForEventAfterPayment(eventId: string, paymentId: string): Promise<ApiResponse> {
-    const response = await apiClient.post(`/events/${eventId}/register-after-payment`, { paymentId });
+  static async registerForEventAfterPayment(eventId: string, paymentId: string, privatePassword?: string): Promise<ApiResponse> {
+    const response = await apiClient.post(`/events/${eventId}/register-after-payment`, { 
+      paymentId,
+      ...(privatePassword && { privatePassword })
+    });
     return response.data;
   }
 

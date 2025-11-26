@@ -1192,7 +1192,7 @@ const registerForEvent = async (eventId, participantId, privatePassword) => {
 };
 
 // Register for event after successful payment
-const registerForEventAfterPayment = async (eventId, participantId, paymentId) => {
+const registerForEventAfterPayment = async (eventId, participantId, paymentId, privatePassword) => {
   try {
     // Use atomic transaction with database-level locking to prevent race conditions
     const result = await prisma.$transaction(async (tx) => {
@@ -1209,6 +1209,8 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
           maxParticipants: true,
           price: true,
           isFree: true,
+          isPrivate: true,
+          privatePassword: true,
           hasMultipleTicketTypes: true, // Include hasMultipleTicketTypes
           _count: {
             select: {
@@ -1224,6 +1226,16 @@ const registerForEventAfterPayment = async (eventId, participantId, paymentId) =
 
       if (!event.isPublished) {
         throw new Error('Event is not published');
+      }
+
+      // Check if event is private and password is required
+      if (event.isPrivate) {
+        if (!privatePassword) {
+          throw new Error('This is a private event. Password is required to register.');
+        }
+        if (event.privatePassword !== privatePassword) {
+          throw new Error('Invalid password for private event.');
+        }
       }
 
       // Check if registration deadline has passed

@@ -251,7 +251,7 @@ const registerForEvent = async (req, res) => {
 const registerForEventAfterPayment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { paymentId } = req.body;
+    const { paymentId, privatePassword } = req.body;
     const userId = req.user.id;
 
     if (!paymentId) {
@@ -261,7 +261,7 @@ const registerForEventAfterPayment = async (req, res) => {
       });
     }
 
-    const result = await eventService.registerForEventAfterPayment(id, userId, paymentId);
+    const result = await eventService.registerForEventAfterPayment(id, userId, paymentId, privatePassword);
 
     // Result from eventService contains: { registration, message, ticketType, registrations, etc }
     // Return the registration object directly (not nested)

@@ -44,6 +44,7 @@ export default function EventDetailPage() {
   const [currentPaymentId, setCurrentPaymentId] = useState<string | null>(null)
   const [currentPaymentUrl, setCurrentPaymentUrl] = useState<string | null>(null)
   const [snapToken, setSnapToken] = useState<string | null>(null)
+  const [privatePassword, setPrivatePassword] = useState<string>('')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -237,6 +238,18 @@ export default function EventDetailPage() {
         return
       }
 
+      // For paid events, check if private password is needed
+      let privatePasswordForPaid = ''
+      if (event.isPrivate) {
+        privatePasswordForPaid = prompt('This is a private event. Please enter the password to register:') || ''
+        if (!privatePasswordForPaid) {
+          alert('Password is required to register for this private event.')
+          setRegistering(false)
+          return
+        }
+        setPrivatePassword(privatePasswordForPaid)
+      }
+
       // For paid events, create payment order first
       const ticketPrice = selectedTicketType?.price || event.price || 0
       const totalAmount = typeof ticketPrice === 'number' ? ticketPrice * selectedQuantity : parseFloat(ticketPrice.toString()) * selectedQuantity
@@ -256,7 +269,7 @@ export default function EventDetailPage() {
       if (paymentResponse.success) {
         // Backend returns { success, message, payment } directly, not nested in data
         const payment = (paymentResponse as any).payment || paymentResponse.data?.payment
-        
+
         if (!payment) {
           console.error('Payment response structure:', paymentResponse)
           alert(`Gagal membuat payment order: Struktur response tidak valid`)
@@ -271,14 +284,14 @@ export default function EventDetailPage() {
         // Check if we're on HTTPS (required for snap.js popup/embed)
         const isHttps = window.location.protocol === 'https:'
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        
+
         // Use redirect URL for localhost (http) to avoid protocol mismatch
         // Use snap.js popup for HTTPS environments (production/staging)
         if (isLocalhost || !isHttps) {
           // Local development: use redirect URL to avoid http/https protocol mismatch
-        if (payment.paymentUrl) {
+          if (payment.paymentUrl) {
             console.log('Using redirect URL for localhost/HTTP environment')
-          window.open(payment.paymentUrl, '_blank')
+            window.open(payment.paymentUrl, '_blank')
           } else {
             console.error('No payment URL available for redirect')
             alert('Gagal membuka halaman pembayaran. Silakan coba lagi.')
@@ -286,33 +299,33 @@ export default function EventDetailPage() {
         } else if (payment.snapToken) {
           // HTTPS environment: use snap.js popup (preferred method)
           console.log('Using snap.js popup for HTTPS environment')
-          
+
           // Load snap.js script dynamically
           const script = document.createElement('script')
-          script.src = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' 
+          script.src = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true'
             ? 'https://app.midtrans.com/snap/snap.js'
             : 'https://app.sandbox.midtrans.com/snap/snap.js'
           script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '')
           script.async = true
-          
+
           script.onload = () => {
             // @ts-ignore - snap is loaded from external script
             if (window.snap) {
               // @ts-ignore
               window.snap.pay(payment.snapToken, {
-                onSuccess: function(result: any) {
+                onSuccess: function (result: any) {
                   console.log('Payment success:', result)
                   handlePaymentSuccess()
                 },
-                onPending: function(result: any) {
+                onPending: function (result: any) {
                   console.log('Payment pending:', result)
                   // Keep modal open to check status
                 },
-                onError: function(result: any) {
+                onError: function (result: any) {
                   console.error('Payment error:', result)
                   alert('Pembayaran gagal. Silakan coba lagi.')
                 },
-                onClose: function() {
+                onClose: function () {
                   console.log('Payment popup closed - user cancelled')
                   // User closed Midtrans popup without payment - cancel payment
                   if (currentPaymentId) {
@@ -341,27 +354,27 @@ export default function EventDetailPage() {
               }
             }
           }
-          
+
           script.onerror = () => {
             console.error('Failed to load snap.js, falling back to redirect URL')
             if (payment.paymentUrl) {
               window.open(payment.paymentUrl, '_blank')
             }
           }
-          
+
           // Remove existing snap script if any
           const existingScript = document.querySelector('script[data-client-key]')
           if (existingScript) {
             existingScript.remove()
           }
-          
+
           document.body.appendChild(script)
         } else if (payment.paymentUrl) {
           // Fallback: open redirect URL if no snapToken
           console.log('Using redirect URL as fallback')
           window.open(payment.paymentUrl, '_blank')
         }
-        
+
         // Show payment modal for status checking (will check payment status automatically)
         setShowPaymentModal(true)
       } else {
@@ -380,8 +393,8 @@ export default function EventDetailPage() {
     if (!event || !currentPaymentId) return
 
     try {
-      // Register for event after payment
-      const response = await ApiService.registerForEventAfterPayment(event.id, currentPaymentId)
+      // Register for event after payment (include private password if event is private)
+      const response = await ApiService.registerForEventAfterPayment(event.id, currentPaymentId, privatePassword || undefined)
 
       if (response.success) {
         alert('Pendaftaran berhasil! Anda akan menerima konfirmasi via email.')
