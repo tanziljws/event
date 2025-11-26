@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -364,7 +365,7 @@ export default function MyRegistrationsPage() {
             <div class="ticket-body">
               <div class="qr-section">
                 <div class="qr-code">
-                  <img src="${qrCodeUrl}" alt="QR Code" style="width: 100%; height: 100%; object-fit: contain;" />
+                  <img src="${qrCodeUrl}" alt="QR Code" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#666;\\'>QR Code: ${selectedTicket.registrationToken}</div>';" />
                 </div>
                 <p>Scan to Check-in</p>
               </div>
@@ -856,13 +857,14 @@ export default function MyRegistrationsPage() {
                 {/* QR Code Section */}
                 <div className="flex flex-col items-center justify-center mb-8">
                   <div className="bg-white p-4 rounded-2xl border-2 border-dashed border-gray-200 shadow-sm mb-4 w-48 h-48 flex items-center justify-center">
-                    {!qrCodeError ? (
+                    {/* Try to load server-generated QR code first, fallback to client-side generation */}
+                    {!qrCodeError && selectedTicket.qrCodeUrl ? (
                       <img
                         src={`${baseUrl}${selectedTicket.qrCodeUrl}`}
                         alt="Event Ticket QR Code"
                         className="w-full h-full object-contain"
                         onError={() => {
-                          console.error('QR Code image failed to load:', `${baseUrl}${selectedTicket.qrCodeUrl}`)
+                          console.warn('QR Code image failed to load, using client-side generation:', `${baseUrl}${selectedTicket.qrCodeUrl}`)
                           setQrCodeError(true)
                         }}
                         onLoad={() => {
@@ -870,10 +872,15 @@ export default function MyRegistrationsPage() {
                         }}
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center text-center p-4">
-                        <QrCode className="w-24 h-24 text-gray-400 mb-2" />
-                        <p className="text-xs text-gray-500">QR Code tidak dapat dimuat</p>
-                        <p className="text-xs text-gray-400 mt-1">Token: {selectedTicket.registrationToken}</p>
+                      // Client-side QR code generation (fallback)
+                      <div className="w-full h-full flex items-center justify-center p-2">
+                        <QRCodeSVG
+                          value={selectedTicket.registrationToken}
+                          size={180}
+                          level="H"
+                          includeMargin={false}
+                          className="w-full h-full"
+                        />
                       </div>
                     )}
                   </div>
